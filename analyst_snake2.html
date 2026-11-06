@@ -6,37 +6,50 @@
 <title>Analcore</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body {
+  html, body {
     background: #0f172a;
     font-family: 'Segoe UI', 'Arial', sans-serif;
     color: #e2e8f0;
-    display: flex; justify-content: center; align-items: center;
-    min-height: 100vh; overflow: hidden; user-select: none;
-    padding: 8px;
+    min-height: 100vh;
+    user-select: none;
+  }
+  body {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px 12px 40px;
   }
   #game-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
   #hud {
     display: flex; justify-content: space-between; width: 100%; max-width: 704px;
     padding: 8px 6px; font-size: 15px; font-weight: 600; color: #cbd5e1;
-    flex-wrap: wrap; gap: 4px;
+    flex-wrap: wrap; gap: 4px; align-items: center;
   }
   #hud b { color: #38bdf8; font-size: 17px; }
   #hud .buff { color: #a855f7; }
   #hud .combo { color: #f59e0b; }
-  canvas { background: #f8fafc; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); max-width: 100%; height: auto; }
-
-  .overlay {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.97); border-radius: 16px;
-    display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
-    text-align: center; padding: 24px 20px; z-index: 10;
-    backdrop-filter: blur(6px); overflow-y: auto;
+  #clock {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #1e293b; padding: 2px 8px; border-radius: 12px;
+    font-size: 13px;
   }
-  .overlay.hidden { display: none; }
-  .overlay h1 { color: #f8fafc; font-size: 42px; font-weight: 900; margin-bottom: 4px; letter-spacing: 2px; }
-  .overlay h1 .accent { color: #38bdf8; }
-  .overlay h2 { color: #f87171; font-size: 28px; font-weight: 800; margin-bottom: 12px; }
-  .overlay p { color: #94a3b8; font-size: 14px; margin: 5px 0; line-height: 1.5; max-width: 640px; }
+  canvas { background: #f8fafc; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); max-width: 100%; height: auto; }
+  canvas.shake { animation: shake 0.4s; }
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 4px); }
+    40% { transform: translate(6px, -4px); }
+    60% { transform: translate(-4px, -6px); }
+    80% { transform: translate(4px, 6px); }
+  }
+
+  #menu-screen {
+    width: 100%; max-width: 704px;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: 8px 0;
+  }
+  #menu-screen.hidden { display: none; }
+  #menu-screen h1 { color: #f8fafc; font-size: 48px; font-weight: 900; margin-bottom: 4px; letter-spacing: 2px; }
+  #menu-screen h1 .accent { color: #38bdf8; }
+  #menu-screen p { color: #94a3b8; font-size: 14px; margin: 5px 0; line-height: 1.5; max-width: 640px; }
 
   .tabs {
     display: flex; gap: 4px; margin: 10px 0 14px; flex-wrap: wrap; justify-content: center;
@@ -49,7 +62,7 @@
   }
   .tab-btn:hover { background: #334155; color: #e2e8f0; }
   .tab-btn.active { background: #38bdf8; color: #0f172a; }
-  .tab-content { display: none; width: 100%; max-width: 660px; }
+  .tab-content { display: none; width: 100%; }
   .tab-content.active { display: block; }
 
   .preview-row {
@@ -64,7 +77,7 @@
     background: rgba(30, 41, 59, 0.7);
     border: 1px solid rgba(56, 189, 248, 0.25);
     border-radius: 12px; padding: 12px 16px; margin: 6px 0 12px;
-    text-align: left;
+    text-align: left; width: 100%;
   }
   .rules-title {
     color: #38bdf8; font-size: 12px; font-weight: 700;
@@ -100,34 +113,28 @@
   .btn.equipped { background: #a855f7; color: #fff; }
   .btn.danger { background: #dc2626; color: #fff; }
   .btn.danger:hover { background: #ef4444; }
+  .btn.big { font-size: 18px; padding: 14px 36px; }
   .diff-desc { font-size: 11px; color: #64748b; margin-top: -2px; margin-bottom: 4px; font-style: italic; }
 
-  /* Достижения */
   .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 8px 0; }
   .ach-card {
     background: rgba(30, 41, 59, 0.7);
     border: 1px solid rgba(56, 189, 248, 0.15);
     border-radius: 10px; padding: 10px;
     display: flex; gap: 8px; align-items: center;
-    transition: border-color 0.2s, background 0.2s;
-    text-align: left;
+    transition: border-color 0.2s, background 0.2s; text-align: left;
   }
   .ach-card.locked { opacity: 0.5; filter: grayscale(1); }
   .ach-card.unlocked { border-color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
   .ach-card.secret-locked { border-color: #64748b; }
   .ach-card.secret-unlocked { border-color: #fbbf24; background: rgba(251, 191, 36, 0.12); }
   .ach-icon { width: 44px; height: 44px; flex-shrink: 0; }
-  .ach-icon.blurred {
-    filter: blur(5px); opacity: 0.4; background: #1e293b; border-radius: 8px;
-  }
+  .ach-icon.blurred { filter: blur(5px); opacity: 0.4; background: #1e293b; border-radius: 8px; }
   .ach-info { flex: 1; }
   .ach-name { font-size: 12px; font-weight: 800; color: #f8fafc; margin-bottom: 2px; }
   .ach-desc { font-size: 10px; color: #94a3b8; line-height: 1.3; }
 
-  /* Статистика */
-  .stat-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 8px 0;
-  }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 8px 0; }
   .stat-card {
     background: rgba(30, 41, 59, 0.7);
     border: 1px solid rgba(56, 189, 248, 0.15);
@@ -136,8 +143,7 @@
   .stat-value { font-size: 22px; font-weight: 900; color: #38bdf8; }
   .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
 
-  /* Магазин */
-  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 8px 0; }
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 8px 0; }
   .shop-card {
     background: rgba(30, 41, 59, 0.7);
     border: 1px solid rgba(56, 189, 248, 0.15);
@@ -149,7 +155,19 @@
   .shop-skin { width: 60px; height: 70px; }
   .shop-name { font-size: 13px; font-weight: 800; color: #f8fafc; }
   .shop-price { font-size: 12px; color: #fbbf24; font-weight: 700; }
-  .shop-desc { font-size: 10px; color: #94a3b8; text-align: center; }
+  .shop-bonus { font-size: 10px; color: #22c55e; text-align: center; line-height: 1.3; font-weight: 700; margin-top: 2px; }
+
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.97);
+    display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+    text-align: center; padding: 24px 20px; z-index: 10;
+    backdrop-filter: blur(6px); overflow-y: auto;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h1 { color: #f8fafc; font-size: 42px; font-weight: 900; margin-bottom: 4px; letter-spacing: 2px; }
+  .overlay h2 { color: #f87171; font-size: 28px; font-weight: 800; margin-bottom: 12px; }
+  .overlay p { color: #94a3b8; font-size: 14px; margin: 5px 0; line-height: 1.5; max-width: 640px; }
 
   #dialog {
     background: rgba(30, 41, 59, 0.9);
@@ -167,20 +185,16 @@
 
   #pause-hint { position: absolute; bottom: -26px; font-size: 11px; color: #64748b; font-style: italic; }
 
-  /* Мобильные кнопки */
   #mobile-controls {
-    display: none;
-    position: fixed;
+    display: none; position: fixed;
     bottom: 10px; left: 50%; transform: translateX(-50%);
     gap: 8px; z-index: 100;
   }
   .dpad-btn {
     background: rgba(56, 189, 248, 0.9);
     border: none; border-radius: 12px;
-    width: 60px; height: 60px;
-    font-size: 24px; color: #0f172a;
-    cursor: pointer;
-    touch-action: manipulation;
+    width: 60px; height: 60px; font-size: 24px; color: #0f172a;
+    cursor: pointer; touch-action: manipulation;
   }
   .dpad-btn:active { background: #7dd3fc; }
   #mobile-controls .dpad-col { display: flex; flex-direction: column; gap: 8px; }
@@ -190,14 +204,10 @@
     #pause-hint { display: none; }
   }
 
-  /* Тост достижений */
   #ach-toast {
-    position: fixed;
-    right: -400px; bottom: 40px;
+    position: fixed; right: -400px; bottom: 40px;
     background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    color: #0f172a;
-    padding: 12px 16px;
-    border-radius: 12px;
+    color: #0f172a; padding: 12px 16px; border-radius: 12px;
     display: flex; gap: 10px; align-items: center;
     box-shadow: 0 10px 30px rgba(251, 191, 36, 0.5);
     z-index: 200;
@@ -209,13 +219,11 @@
   #ach-toast .toast-text { font-size: 13px; font-weight: 700; line-height: 1.3; }
   #ach-toast .toast-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
 
-  /* Праздничный экран победы */
   #win-screen {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 25%, #fbbf24 50%, #f59e0b 75%, #dc2626 100%);
     background-size: 400% 400%;
     animation: gradientShift 4s ease infinite;
-    justify-content: center;
-    overflow: hidden;
+    justify-content: center; overflow: hidden;
   }
   @keyframes gradientShift {
     0%, 100% { background-position: 0% 50%; }
@@ -233,30 +241,47 @@
   #win-screen .win-subtitle {
     font-size: 20px; color: #fff; font-weight: 700;
     text-shadow: 2px 2px 0 #b45309;
-    margin: 10px 0 20px;
-    max-width: 600px;
+    margin: 10px 0 20px; max-width: 600px;
     animation: winFade 1s ease 0.5s both;
   }
   @keyframes winFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-  #win-screen .win-emoji {
-    font-size: 100px; animation: winSpin 2s ease infinite;
-    display: inline-block;
-  }
+  #win-screen .win-emoji { font-size: 100px; animation: winSpin 2s ease infinite; display: inline-block; }
   @keyframes winSpin {
     0%, 100% { transform: rotate(-10deg) scale(1); }
     50% { transform: rotate(10deg) scale(1.1); }
   }
   #win-screen .btn-win {
-    background: #fff; color: #dc2626;
-    font-size: 20px; padding: 18px 40px;
+    background: #fff; color: #dc2626; font-size: 20px; padding: 18px 40px;
     box-shadow: 0 8px 0 #7f1d1d, 0 12px 30px rgba(0,0,0,0.4);
-    margin-top: 10px;
-    animation: winFade 1s ease 1s both;
+    margin-top: 10px; animation: winFade 1s ease 1s both;
   }
-  #win-screen .btn-win:hover { background: #fef3c7; transform: translateY(-2px); box-shadow: 0 10px 0 #7f1d1d, 0 15px 35px rgba(0,0,0,0.5); }
-  #win-screen .btn-win:active { transform: translateY(4px); box-shadow: 0 4px 0 #7f1d1d, 0 8px 20px rgba(0,0,0,0.4); }
+  #win-screen .btn-win:hover { background: #fef3c7; transform: translateY(-2px); }
 
-  /* Конфетти */
+  #fulltz-screen {
+    background: linear-gradient(135deg, #334155 0%, #1e293b 50%, #0f172a 100%);
+    justify-content: center; overflow: hidden;
+  }
+  #fulltz-screen h1 {
+    font-size: 44px; color: #f8fafc;
+    text-shadow: 3px 3px 0 #000;
+    animation: winFade 0.8s ease;
+  }
+  #fulltz-screen .fulltz-subtitle {
+    font-size: 18px; color: #cbd5e1; font-weight: 600;
+    margin: 12px 0 20px; max-width: 600px;
+    animation: winFade 1s ease 0.4s both;
+  }
+  #fulltz-screen .fulltz-emoji {
+    font-size: 80px; animation: winFade 1s ease 0.2s both;
+    display: inline-block;
+  }
+  #fulltz-screen .btn-fulltz {
+    background: #38bdf8; color: #0f172a;
+    font-size: 18px; padding: 16px 36px;
+    margin-top: 10px;
+    animation: winFade 1s ease 0.8s both;
+  }
+
   .confetti {
     position: absolute;
     width: 10px; height: 10px;
@@ -267,21 +292,57 @@
     0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
     100% { transform: translateY(100vh) rotate(720deg); opacity: 0.3; }
   }
+
+  .settings-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(30, 41, 59, 0.7);
+    border-radius: 10px; padding: 10px 14px; margin: 6px 0;
+    max-width: 400px; width: 100%;
+  }
+  .settings-row span { color: #e2e8f0; font-size: 14px; font-weight: 600; }
+  .toggle-btn {
+    background: #334155; color: #94a3b8; border: none;
+    padding: 6px 16px; border-radius: 20px; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    transition: background 0.2s, color 0.2s;
+  }
+  .toggle-btn.on { background: #22c55e; color: #fff; }
+
+  #tutorial {
+    background: rgba(15, 23, 42, 0.98);
+    justify-content: center;
+  }
+  .tut-box {
+    background: rgba(30, 41, 59, 0.9);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 12px; padding: 20px 24px; margin: 12px 0;
+    max-width: 560px; min-height: 140px;
+    display: flex; flex-direction: column; justify-content: center;
+    text-align: left;
+  }
+  .tut-icon { font-size: 48px; text-align: center; margin-bottom: 10px; animation: winBounce 0.6s ease; }
+  .tut-title { font-size: 18px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }
+  .tut-text { font-size: 14px; color: #e2e8f0; line-height: 1.5; }
+  .tut-nav { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+  .tut-dots { display: flex; gap: 6px; flex: 1; }
+  .tut-dot { width: 8px; height: 8px; border-radius: 50%; background: #334155; transition: background 0.2s; }
+  .tut-dot.active { background: #38bdf8; }
 </style>
 </head>
 <body>
 <div id="game-wrapper">
-  <div id="hud">
+  <div id="hud" style="display:none;">
     <span>📄 ТЗ: <b id="score">0</b></span>
     <span>🎯 Ур: <b id="level">1</b></span>
     <span id="combo-indicator" style="display:none;">🔥 <b class="combo" id="combo-val">x1</b></span>
     <span id="buff-indicator" style="display:none;">🛡 <b class="buff" id="buff-time">0.0</b></span>
+    <span id="clock">🌗 <b id="clock-val">День</b></span>
     <span>🏆 <b id="best">0</b></span>
   </div>
-  <canvas id="game"></canvas>
-  <div id="pause-hint">Пробел — пауза</div>
+  <canvas id="game" style="display:none;"></canvas>
+  <div id="pause-hint" style="display:none;">Пробел — пауза</div>
 
-  <div id="mobile-controls">
+  <div id="mobile-controls" style="display:none;">
     <div class="dpad-col">
       <button class="dpad-btn" data-dir="up">▲</button>
       <button class="dpad-btn" data-dir="down">▼</button>
@@ -292,8 +353,7 @@
     </div>
   </div>
 
-  <!-- ГЛАВНОЕ МЕНЮ -->
-  <div class="overlay" id="menu">
+  <div id="menu-screen">
     <h1>Anal<span class="accent">core</span></h1>
     <p style="color:#38bdf8; font-style: italic; margin-bottom: 2px;">Собери ТЗ. Не попадись.</p>
     <p style="color:#fbbf24; font-size: 12px; margin-bottom: 4px;">Всего ТЗ накоплено: <b id="total-leaves">0</b></p>
@@ -310,7 +370,8 @@
         <div class="preview-item">
           <svg width="44" height="52" viewBox="0 0 60 70">
             <ellipse cx="30" cy="66" rx="14" ry="3" fill="rgba(0,0,0,0.3)"/>
-            <rect x="16" y="40" width="28" height="24" rx="6" fill="#3b82f6"/>
+            <rect x="15" y="38" width="30" height="26" rx="7" fill="#1e3a8a"/>
+            <rect x="17" y="40" width="26" height="22" rx="6" fill="#3b82f6"/>
             <circle cx="30" cy="26" r="13" fill="#fbbf24"/>
             <path d="M15 26 Q15 8 30 8 Q45 8 45 26 L45 22 Q45 12 30 12 Q15 12 15 22 Z" fill="#78350f"/>
             <rect x="13" y="22" width="5" height="16" fill="#78350f"/>
@@ -386,16 +447,11 @@
           <li class="alex"><span class="ico">⚙️</span><span><b>Алексей</b> (Тех. директор) замораживает аналитика на <b>3 секунды</b> болтовнёй.</span></li>
           <li class="ilya"><span class="ico">💬</span><span><b>Илья</b> (Разработчик) даёт <b>защиту на 10 секунд</b> от врагов, если с ним поговорить.</span></li>
           <li><span class="ico">🎯</span><span>Каждые <b>30 ТЗ</b> — новый уровень: враги быстрее.</span></li>
+          <li><span class="ico">🎁</span><span>У каждого скина — свой <b>уникальный бонус</b>. Подробнее в магазине.</span></li>
         </ul>
       </div>
 
-      <p>Выбери сложность:</p>
-      <button class="btn diff" data-diff="easy">🟢 Стажёр</button>
-      <div class="diff-desc">Враги медленные, живут 15 сек</div>
-      <button class="btn diff" data-diff="normal">🟡 Аналитик</button>
-      <div class="diff-desc">Обычная скорость, живут 20 сек</div>
-      <button class="btn diff" data-diff="hard">🔴 Тимлид</button>
-      <div class="diff-desc">Быстрые враги, живут 30 сек</div>
+      <button class="btn big" id="btn-play">🎮 Играть</button>
     </div>
 
     <div class="tab-content" id="tab-achievements">
@@ -415,13 +471,53 @@
     </div>
   </div>
 
-  <!-- ПАУЗА -->
+  <div class="overlay hidden" id="diff-screen">
+    <h1>Выбери сложность</h1>
+    <button class="btn diff" data-diff="easy">🟢 Стажёр</button>
+    <div class="diff-desc">Враги медленные, живут 15 сек</div>
+    <button class="btn diff" data-diff="normal">🟡 Аналитик</button>
+    <div class="diff-desc">Обычная скорость, живут 20 сек</div>
+    <button class="btn diff" data-diff="hard">🔴 Тимлид</button>
+    <div class="diff-desc">Быстрые враги, живут 30 сек</div>
+    <button class="btn" id="diff-back" style="margin-top: 14px;">← Назад</button>
+  </div>
+
   <div class="overlay hidden" id="pause">
     <h1>Пауза</h1>
     <p>Пробел — продолжить</p>
+    <button class="btn" id="pause-resume">Продолжить</button>
+    <button class="btn" id="pause-tutorial">📖 Туториал</button>
+    <div style="margin-top: 18px; width: 100%; display:flex; flex-direction:column; align-items:center;">
+      <div class="settings-row">
+        <span>🔊 Звук</span>
+        <button class="toggle-btn on" id="toggle-sound">ВКЛ</button>
+      </div>
+      <div class="settings-row">
+        <span>📳 Тряска экрана</span>
+        <button class="toggle-btn on" id="toggle-shake">ВКЛ</button>
+      </div>
+      <div class="settings-row">
+        <span>🔲 Сетка</span>
+        <button class="toggle-btn on" id="toggle-grid">ВКЛ</button>
+      </div>
+    </div>
   </div>
 
-  <!-- GAME OVER -->
+  <div class="overlay hidden" id="tutorial">
+    <h1>Туториал</h1>
+    <div class="tut-box">
+      <div class="tut-icon" id="tut-icon">📄</div>
+      <div class="tut-title" id="tut-title">Собирай ТЗ</div>
+      <div class="tut-text" id="tut-text">Двигайся по офису и собирай листочки ТЗ. Каждый даёт +1.</div>
+    </div>
+    <div class="tut-nav">
+      <div class="tut-dots" id="tut-dots"></div>
+      <button class="btn small" id="tut-prev">←</button>
+      <button class="btn small" id="tut-next">→</button>
+      <button class="btn small" id="tut-close">Закрыть</button>
+    </div>
+  </div>
+
   <div class="overlay hidden" id="gameover">
     <h2 id="go-title">Тебя поймали!</h2>
     <div id="dialog">
@@ -434,16 +530,21 @@
     <button class="btn" id="to-menu">В меню</button>
   </div>
 
-  <!-- ПОБЕДА (ОФФЕР) -->
   <div class="overlay hidden" id="win-screen">
     <div class="win-emoji">🎉</div>
     <h1>Вы нашли новую работу!</h1>
     <p class="win-subtitle">Теперь всё будет хорошо. Оффер от HH.ru — это судьба.</p>
     <button class="btn btn-win" id="go-new-job">Выйти на новую работу →</button>
   </div>
+
+  <div class="overlay hidden" id="fulltz-screen">
+    <div class="fulltz-emoji">📋</div>
+    <h1>Поздравляем, вы написали полноценное ТЗ</h1>
+    <p class="fulltz-subtitle">Сто штук за одну смену. Это подвиг. Или безумие. Пора домой.</p>
+    <button class="btn btn-fulltz" id="go-home">Закончить смену, пойти домой</button>
+  </div>
 </div>
 
-<!-- Тосты достижений -->
 <div id="ach-toast">
   <div class="toast-icon" id="toast-icon"></div>
   <div>
@@ -453,11 +554,9 @@
 </div>
 
 <script>
-// ============================================================
-//  КОНСТАНТЫ
-// ============================================================
 const GRID = 22, TILE = 32, W = GRID * TILE, H = GRID * TILE;
 const T_FLOOR = 0, T_DESK = 1, T_COOLER = 2, T_PRINTER = 3, T_PLANT = 4;
+const DAY_NIGHT_CYCLE = 120000;
 
 const DIFFS = {
   easy:   { tickMs: 210, enemyLife: 15000, enemySpeed: 520, leafSpawn: 0.022 },
@@ -475,6 +574,10 @@ const DIALOGS = {
     'Саша: «А можно, чтобы работало, но без разработки?»',
     'Саша: «Слушай, у меня идея на 5 минут...» — и ты понял, что не успеешь.',
     'Саша: «А что если мы просто переименуем ТЗ и оно само допишется?»',
+    'Саша: «Я добавила в скоуп ещё одну фичу. Совсем маленькую. Наверное.»',
+    'Саша: «А давай сделаем тёмную тему? И светлую. И ещё радужную.»',
+    'Саша: «Клиент хочет, чтобы кнопка была красной. И зелёной. Одновременно.»',
+    'Саша: «Я уже презентовала макет инвесторам. Правда, макета нет...»',
   ],
   katya: [
     'Катя: «А где ТЗ? У нас через 5 минут созвон с заказчиком.»',
@@ -485,12 +588,28 @@ const DIALOGS = {
     'Катя: «По плану мы уже на этапе "готово". А код где?»',
     'Катя: «Ты уверен, что это входит в скоуп?» — и скоуп вырос вдвое.',
     'Катя: «Я уже сказала клиенту, что завтра будет демо.»',
+    'Катя: «Созвон в 8 утра. Обязательно. Это же понедельник!»',
+    'Катя: «Я добавила ещё одну задачу в спринт. Она срочная. Как всегда.»',
+    'Катя: «А почему мы ещё не на проде? Я уже анонсировала релиз.»',
+    'Катя: «Не забудь: завтра ретроспектива. И демо. И ещё один созвон.»',
   ],
 };
 
-// ============================================================
-//  ДОСТИЖЕНИЯ
-// ============================================================
+const REACTIONS = {
+  aura: [
+    { who: 'sasha', text: 'Саша: «Что это было?! Он что, в отпуске?»' },
+    { who: 'katya', text: 'Катя: «Защита? В рабочее время?!»' },
+  ],
+  frozen: [
+    { who: 'alex', text: 'Алексей: «Я как раз про архитектуру хотел...»' },
+    { who: 'alex', text: 'Алексей: «Есть один нюанс...»' },
+  ],
+  offer: [
+    { who: 'sasha', text: 'Саша: «Ну куда ты! Мы же только начали!»' },
+    { who: 'katya', text: 'Катя: «А как же спринт?!»' },
+  ],
+};
+
 const ACHIEVEMENTS = [
   { id: 'first_leaf', name: 'Первый шаг', desc: 'Собери 1 листочек ТЗ', secret: false,
     check: (s) => s.totalLeaves >= 1,
@@ -528,25 +647,97 @@ const ACHIEVEMENTS = [
   { id: 'dream_offer', name: 'Оффер мечты', desc: 'Вы получили офер и ушли на новую работу, теперь всё у вас будет хорошо', secret: true,
     check: (s) => s.dreamOffer === true,
     icon: `<svg viewBox="0 0 44 44"><rect x="6" y="10" width="32" height="26" rx="3" fill="#dc2626"/><text x="22" y="22" font-size="10" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">hh</text><text x="22" y="32" font-size="8" fill="#fff" text-anchor="middle">.ru</text></svg>` },
+  { id: 'full_tz', name: 'Полноценное ТЗ', desc: 'Ты написал полноценное ТЗ — сто штук за смену. Пора домой.', secret: true,
+    check: (s) => s.fullTz === true,
+    icon: `<svg viewBox="0 0 44 44"><rect x="6" y="8" width="32" height="30" rx="3" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/><rect x="10" y="13" width="24" height="2" fill="#22c55e"/><rect x="10" y="18" width="20" height="1.5" fill="#cbd5e1"/><rect x="10" y="22" width="22" height="1.5" fill="#cbd5e1"/><rect x="10" y="26" width="18" height="1.5" fill="#cbd5e1"/><text x="22" y="36" font-size="8" text-anchor="middle" fill="#38bdf8">100</text></svg>` },
+  { id: 'night_worker', name: 'Ночной аналитик', desc: 'Сыграй 5 игр подряд', secret: false,
+    check: (s) => s.totalGames >= 5,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🌙</text></svg>` },
+  { id: 'timlid', name: 'Тимлид', desc: 'Набери 100 ТЗ за всё время', secret: false,
+    check: (s) => s.totalLeaves >= 100,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">👑</text></svg>` },
+  { id: 'elusive', name: 'Неуловимый', desc: 'Проживи 3 минуты без ауры', secret: false,
+    check: (s) => s.gameTime >= 180000 && s.auraHits === 0,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">💨</text></svg>` },
+  { id: 'collector', name: 'Коллекционер', desc: 'Купи все скины', secret: false,
+    check: (s) => s.allSkins === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🎨</text></svg>` },
+  { id: 'sergey_buy', name: 'Серёжа', desc: 'Купи скин Серёжа', secret: false,
+    check: (s) => s.hasSergey === true,
+    icon: `<svg viewBox="0 0 44 44"><circle cx="22" cy="18" r="10" fill="#fbbf24"/><path d="M20 12 L22 4 L24 12 Z" fill="#ea580c"/><path d="M14 22 Q22 32 30 22 Q28 28 22 28 Q16 28 14 22 Z" fill="#ea580c"/></svg>` },
+  { id: 'danil_buy', name: 'Данил', desc: 'Купи скин Данил', secret: false,
+    check: (s) => s.hasDanil === true,
+    icon: `<svg viewBox="0 0 44 44"><circle cx="22" cy="18" r="10" fill="#fbbf24"/><path d="M14 16 Q22 8 30 16 L30 14 Q22 6 14 14 Z" fill="#451a03"/><rect x="12" y="28" width="20" height="12" rx="3" fill="#1e40af"/></svg>` },
+  { id: 'demid_buy', name: 'Демид', desc: 'Купи скин Демид', secret: false,
+    check: (s) => s.hasDemid === true,
+    icon: `<svg viewBox="0 0 44 44"><circle cx="22" cy="18" r="10" fill="#fbbf24"/><path d="M14 16 Q22 8 30 16 L30 14 Q22 6 14 14 Z" fill="#292524"/><rect x="12" y="28" width="20" height="12" rx="3" fill="#18181b"/></svg>` },
+  { id: 'vape', name: 'Дымок', desc: 'Используй вейп Серёжи', secret: false,
+    check: (s) => s.vapeUsed === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🚬</text></svg>` },
+  { id: 'bike', name: 'Велосипедист', desc: 'Прокатись на велосипеде Данила', secret: false,
+    check: (s) => s.bikeUsed === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🚲</text></svg>` },
+  { id: 'cookie', name: 'Сладкоежка', desc: 'Съешь печеньку Демида', secret: false,
+    check: (s) => s.cookieUsed === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🍪</text></svg>` },
+  { id: 'fast_10', name: 'Скоростной', desc: '10 ТЗ за 5 секунд', secret: false,
+    check: (s) => s.fast10 === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">⚡</text></svg>` },
+  { id: 'perfect_run', name: 'Идеальный забег', desc: 'Игра без поимок и заморозок', secret: false,
+    check: (s) => s.freezeCount === 0 && s.gameTime > 60000,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">✨</text></svg>` },
+  { id: 'early_bird', name: 'Ранняя птица', desc: 'Собери 30 ТЗ за 1 минуту', secret: false,
+    check: (s) => s.score >= 30 && s.gameTime <= 60000,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🌅</text></svg>` },
+  { id: 'night_owl', name: 'Ночная сова', desc: 'Доживи до ночи', secret: false,
+    check: (s) => s.gameTime >= 90000,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🦉</text></svg>` },
+  { id: 'multi_combo', name: 'Комбо-мастер', desc: 'Достигни комбо x5', secret: false,
+    check: (s) => s.maxCombo >= 5,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">💥</text></svg>` },
+  { id: 'survivor', name: 'Выживший', desc: 'Сыграй 10 игр', secret: false,
+    check: (s) => s.totalGames >= 10,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🛡</text></svg>` },
+  { id: 'marathon', name: 'Марафонец', desc: 'Сыграй 25 игр', secret: false,
+    check: (s) => s.totalGames >= 25,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🏃</text></svg>` },
+  { id: 'high_score', name: 'Высокий полёт', desc: 'Набери 200 ТЗ за всё время', secret: false,
+    check: (s) => s.totalLeaves >= 200,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🚀</text></svg>` },
+  { id: 'almost_full', name: 'Почти у цели', desc: 'Собери 50 ТЗ за одну игру', secret: false,
+    check: (s) => s.score >= 50,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🎯</text></svg>` },
+  { id: 'no_damage', name: 'Без потерь', desc: 'Проживи 90 секунд без заморозки', secret: false,
+    check: (s) => s.gameTime >= 90000 && s.freezeCount === 0,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">💎</text></svg>` },
+  { id: 'coffee_lover', name: 'Любитель кофе', desc: 'Проведи 30 игр', secret: false,
+    check: (s) => s.totalGames >= 30,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">☕</text></svg>` },
+  { id: 'full_house', name: 'Полный дом', desc: 'Собери все обычные достижения', secret: false,
+    check: (s) => s.allNormalAch === true,
+    icon: `<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">🏅</text></svg>` },
 ];
 
-// ============================================================
-//  СКИНЫ
-// ============================================================
 const SKINS = [
-  { id: 'default', name: 'Аналитик', desc: 'Классический', price: 0,
+  { id: 'default', name: 'Аналитик', desc: 'Классический', price: 0, bonus: 'Без бонуса',
     hairColor: '#78350f', shirtColor: '#3b82f6', shirtStripe: '#2563eb', hasBeard: false, hairStyle: 'short', outline: '#1e3a8a' },
-  { id: 'sergey', name: 'Серёжа', desc: 'Рыжий ирокез + борода', price: 50,
+  { id: 'sergey', name: 'Серёжа', desc: 'Рыжий ирокез + борода', price: 50, bonus: '🚬 Вейп: дым скрывает от врагов на 5 сек',
     hairColor: '#ea580c', shirtColor: '#ffffff', shirtStripe: '#e2e8f0', hasBeard: true, hairStyle: 'mohawk', outline: '#78350f' },
-  { id: 'danil', name: 'Данил', desc: 'Синяя куртка', price: 150,
+  { id: 'danil', name: 'Данил', desc: 'Синяя куртка', price: 150, bonus: '🚲 Велосипед: ускорение на 5 сек',
     hairColor: '#451a03', shirtColor: '#1e40af', shirtStripe: '#1e3a8a', hasBeard: false, hairStyle: 'short', outline: '#0c1e5e' },
-  { id: 'demid', name: 'Демид', desc: 'Чёрная кофта', price: 100,
+  { id: 'demid', name: 'Демид', desc: 'Чёрная кофта', price: 100, bonus: '🍪 Печенька: x2 ТЗ на 10 сек',
     hairColor: '#292524', shirtColor: '#18181b', shirtStripe: '#3f3f46', hasBeard: false, hairStyle: 'medium', outline: '#000000' },
 ];
 
-// ============================================================
-//  СОХРАНЕНИЯ
-// ============================================================
+const TUTORIAL_STEPS = [
+  { icon: '🎮', title: 'Управление', text: 'Двигайся стрелками или WASD. На телефоне — свайпами или кнопками внизу.' },
+  { icon: '📄', title: 'Собирай ТЗ', text: 'Листочки ТЗ дают +1. BPMN-диаграммы — +5 и удлиняют тебя.' },
+  { icon: '⚠️', title: 'Осторожно, враги!', text: 'Саша и Катя ловят — задача отменяется. Алексей замораживает на 3 сек.' },
+  { icon: '💬', title: 'Илья', text: 'Поговори с Ильёй — получишь ауру на 10 сек. Враг, догнавший с аурой, улетает.' },
+  { icon: '🎁', title: 'Бонусы скинов', text: 'У каждого скина свой бонус: вейп, велосипед, печенька. Покупай в магазине!' },
+  { icon: '🌗', title: 'День и ночь', text: 'День сменяется ночью каждую минуту. Следи за часами в HUD.' },
+];
+
 function loadSave() {
   try { return JSON.parse(localStorage.getItem('analcore_save') || '{}'); }
   catch (e) { return {}; }
@@ -562,12 +753,10 @@ save.achievements = save.achievements || {};
 save.skins = save.skins || { default: true };
 save.currentSkin = save.currentSkin || 'default';
 save.maxComboEver = save.maxComboEver || 0;
+save.settings = save.settings || { sound: true, shake: true, grid: true };
 
-// ============================================================
-//  ЗВУК
-// ============================================================
 let audioCtx = null;
-let soundEnabled = true;
+let soundEnabled = save.settings.sound;
 function initAudio() {
   if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; } }
 }
@@ -608,30 +797,34 @@ const sfx = {
   offer: () => { [523,659,784,1047,1319].forEach((f,i) => setTimeout(() => playTone(f, 0.3, 'triangle', 0.2), i*120)); },
   click: () => { playTone(600, 0.05, 'sine', 0.06); },
   achievement: () => { [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.15), i*100)); },
+  fulltz: () => { [392, 440, 494, 523].forEach((f,i) => setTimeout(() => playTone(f, 0.4, 'triangle', 0.15), i*200)); },
+  vape: () => { playNoise(0.3, 0.1); },
+  bike: () => { [523, 659, 784].forEach((f,i) => setTimeout(() => playTone(f, 0.1, 'square', 0.1), i*80)); },
+  cookie: () => { playTone(880, 0.15, 'sine', 0.15); setTimeout(() => playTone(1047, 0.2, 'sine', 0.15), 100); },
 };
 
-// ============================================================
-//  СОСТОЯНИЕ
-// ============================================================
 let state = {
   phase: 'menu', diff: 'normal', score: 0, level: 1,
   tickMs: 173, lastTick: 0,
   snake: [], dir: { x: 1, y: 0 }, nextDir: { x: 1, y: 0 },
   leaves: [], bpmns: [], enemies: [], ilyas: [], particles: [], floaters: [], trail: [],
-  offer: null,
+  offer: null, bonuses: [],
   office: [], lastFrame: 0,
   enemyCooldown: 5000, enemyTimer: 0,
   alexCooldown: 12000, alexTimer: 0,
   ilyaCooldown: 15000, ilyaTimer: 0,
   offerCooldown: 25000, offerTimer: 0,
+  bonusCooldown: 12000, bonusTimer: 0,
   animTime: 0, stepPhase: 0,
-  frozen: 0, aura: 0,
+  frozen: 0, aura: 0, smoke: 0, speedBoost: 0, doubleLeaf: 0,
   gameStartTime: 0, gameTime: 0,
   bpmnCount: 0, ilyaCount: 0, auraHits: 0, freezeCount: 0,
   combo: 1, comboCount: 0, maxCombo: 1, lastEatTime: 0,
   metSasha: false, metKatya: false, metAlex: false, metIlya: false,
-  newRecord: false, dreamOffer: false,
-  escaping: false, escapeX: 0,
+  newRecord: false, dreamOffer: false, fullTz: false,
+  vapeUsed: false, bikeUsed: false, cookieUsed: false,
+  fast10: false,
+  dayPhase: 0,
 };
 
 const canvas = document.getElementById('game');
@@ -689,6 +882,7 @@ function randomFreeCell() {
     if (state.bpmns.some(b => b.x === x && b.y === y)) continue;
     if (state.enemies.some(e => e.x === x && e.y === y)) continue;
     if (state.ilyas.some(i => i.x === x && i.y === y)) continue;
+    if (state.bonuses.some(b => b.x === x && b.y === y)) continue;
     if (state.offer && state.offer.x === x && state.offer.y === y) continue;
     return { x, y };
   }
@@ -717,7 +911,7 @@ function spawnEnemy(type) {
     x: e.x, y: e.y, type,
     lifeLeft: cfg.enemyLife,
     stepAcc: 0, stepMs: cfg.enemySpeed,
-    walkPhase: 0, falling: 0,
+    walkPhase: 0, falling: 0, leaving: false, leaveDir: { x: 0, y: 0 },
   });
   if (type === 'sasha') state.metSasha = true;
   if (type === 'katya') state.metKatya = true;
@@ -734,10 +928,17 @@ function spawnOffer() {
   if (!p) return;
   state.offer = { x: p.x, y: p.y, lifeLeft: 5000, born: performance.now() };
 }
+function spawnBonus() {
+  const skinId = save.currentSkin;
+  if (skinId === 'default') return;
+  const p = randomFreeCell();
+  if (!p) return;
+  const types = { sergey: 'vape', danil: 'bike', demid: 'cookie' };
+  const type = types[skinId];
+  if (!type) return;
+  state.bonuses.push({ x: p.x, y: p.y, type, lifeLeft: 10000, born: performance.now() });
+}
 
-// ============================================================
-//  ИГРА
-// ============================================================
 let rafId = null;
 
 function startGame(diff) {
@@ -747,27 +948,38 @@ function startGame(diff) {
   state.phase = 'playing';
   state.score = 0; state.level = 1; state.tickMs = cfg.tickMs;
   state.office = generateOffice();
-  state.enemies = []; state.leaves = []; state.bpmns = []; state.ilyas = [];
+  state.enemies = []; state.leaves = []; state.bpmns = []; state.ilyas = []; state.bonuses = [];
   state.particles = []; state.floaters = []; state.trail = [];
   state.offer = null;
   state.enemyCooldown = 5000; state.enemyTimer = 0;
   state.alexCooldown = 10000; state.alexTimer = 0;
   state.ilyaCooldown = 8000; state.ilyaTimer = 0;
   state.offerCooldown = 20000 + Math.random() * 20000; state.offerTimer = 0;
-  state.frozen = 0; state.aura = 0;
+  state.bonusCooldown = 12000 + Math.random() * 6000; state.bonusTimer = 0;
+  state.frozen = 0; state.aura = 0; state.smoke = 0; state.speedBoost = 0; state.doubleLeaf = 0;
   state.gameStartTime = performance.now(); state.gameTime = 0;
   state.bpmnCount = 0; state.ilyaCount = 0; state.auraHits = 0; state.freezeCount = 0;
   state.combo = 1; state.comboCount = 0; state.maxCombo = 1; state.lastEatTime = 0;
   state.metSasha = false; state.metKatya = false; state.metAlex = false; state.metIlya = false;
-  state.newRecord = false; state.dreamOffer = false;
-  state.escaping = false; state.escapeX = 0;
+  state.newRecord = false; state.dreamOffer = false; state.fullTz = false;
+  state.vapeUsed = false; state.bikeUsed = false; state.cookieUsed = false;
+  state.fast10 = false;
+  state.dayPhase = 0;
   state.snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
   state.dir = {x:1,y:0}; state.nextDir = {x:1,y:0};
   spawnLeaf(); spawnLeaf(); spawnBPMN();
-  document.getElementById('menu').classList.add('hidden');
+
+  document.getElementById('game').style.display = 'block';
+  document.getElementById('menu-screen').classList.add('hidden');
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('pause-hint').style.display = 'block';
+  document.getElementById('mobile-controls').style.display = '';
   document.getElementById('gameover').classList.add('hidden');
   document.getElementById('pause').classList.add('hidden');
   document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('fulltz-screen').classList.add('hidden');
+  document.getElementById('diff-screen').classList.add('hidden');
+
   updateBuffIndicator();
   updateComboIndicator();
   state.lastTick = performance.now(); state.lastFrame = performance.now();
@@ -780,19 +992,21 @@ function loop(now) {
   const dt = now - state.lastFrame;
   state.lastFrame = now;
   state.animTime += dt;
-  if (state.phase === 'playing' || state.phase === 'escaping') update(dt, now);
+  if (state.phase === 'playing' || state.phase === 'paused') update(dt, now);
   render();
   rafId = requestAnimationFrame(loop);
 }
 
 function update(dt, now) {
-  if (state.phase === 'escaping') {
-    state.escapeX += dt * 0.5;
-    return;
-  }
+  if (state.phase !== 'playing') return;
   state.gameTime = now - state.gameStartTime;
+  state.dayPhase = (state.gameTime % DAY_NIGHT_CYCLE) / DAY_NIGHT_CYCLE;
+
   if (state.frozen > 0) state.frozen = Math.max(0, state.frozen - dt);
   if (state.aura > 0) state.aura = Math.max(0, state.aura - dt);
+  if (state.smoke > 0) state.smoke = Math.max(0, state.smoke - dt);
+  if (state.speedBoost > 0) state.speedBoost = Math.max(0, state.speedBoost - dt);
+  if (state.doubleLeaf > 0) state.doubleLeaf = Math.max(0, state.doubleLeaf - dt);
   updateBuffIndicator();
 
   if (state.comboCount > 0 && now - state.lastEatTime > 2000) {
@@ -800,7 +1014,8 @@ function update(dt, now) {
     updateComboIndicator();
   }
 
-  if (state.frozen === 0 && now - state.lastTick >= state.tickMs) {
+  const effectiveTick = state.speedBoost > 0 ? state.tickMs * 0.6 : state.tickMs;
+  if (state.frozen === 0 && now - state.lastTick >= effectiveTick) {
     state.lastTick = now;
     state.stepPhase = (state.stepPhase + 1) % 2;
     stepSnake(now);
@@ -808,6 +1023,33 @@ function update(dt, now) {
 
   state.enemies.forEach(en => {
     if (en.falling > 0) { en.falling -= dt; return; }
+
+    if (en.lifeLeft <= 0 && !en.leaving) {
+      en.leaving = true;
+      const dxL = en.x, dxR = GRID - 1 - en.x, dyT = en.y, dyB = GRID - 1 - en.y;
+      const m = Math.min(dxL, dxR, dyT, dyB);
+      if (m === dxL) en.leaveDir = { x: -1, y: 0 };
+      else if (m === dxR) en.leaveDir = { x: 1, y: 0 };
+      else if (m === dyT) en.leaveDir = { x: 0, y: -1 };
+      else en.leaveDir = { x: 0, y: 1 };
+      en.stepMs = 180;
+      en.stepAcc = 0;
+    }
+
+    if (en.leaving) {
+      en.stepAcc += dt;
+      en.walkPhase += dt;
+      if (en.stepAcc >= en.stepMs) {
+        en.stepAcc = 0;
+        en.x += en.leaveDir.x;
+        en.y += en.leaveDir.y;
+        if (en.x < 0 || en.x >= GRID || en.y < 0 || en.y >= GRID) {
+          en.lifeLeft = -99999;
+        }
+      }
+      return;
+    }
+
     en.lifeLeft -= dt;
     en.stepAcc += dt;
     en.walkPhase += dt;
@@ -820,6 +1062,9 @@ function update(dt, now) {
         addFloater(en.x, en.y, '💫 Отбит!', '#a855f7');
         state.auraHits++;
         sfx.aura();
+        showReaction('aura');
+      } else if (state.smoke > 0) {
+        // враг не видит
       } else if (en.type === 'alex') {
         state.frozen = 3000;
         addFloater(head.x, head.y, '❄️ -3 сек', '#7dd3fc');
@@ -827,12 +1072,21 @@ function update(dt, now) {
         en.lifeLeft = 0;
         state.freezeCount++;
         sfx.freeze();
+        showReaction('frozen');
+        if (save.settings.shake) {
+          canvas.classList.add('shake');
+          setTimeout(() => canvas.classList.remove('shake'), 400);
+        }
       } else {
+        if (save.settings.shake) {
+          canvas.classList.add('shake');
+          setTimeout(() => canvas.classList.remove('shake'), 400);
+        }
         gameOver(en.type);
       }
     }
   });
-  state.enemies = state.enemies.filter(en => en.lifeLeft > 0);
+  state.enemies = state.enemies.filter(en => en.lifeLeft > -90000);
 
   if (state.offer) {
     state.offer.lifeLeft -= dt;
@@ -845,18 +1099,27 @@ function update(dt, now) {
     spawnOffer();
   }
 
+  state.bonuses.forEach(b => { b.lifeLeft -= dt; });
+  state.bonuses = state.bonuses.filter(b => b.lifeLeft > 0);
+  state.bonusTimer += dt;
+  if (state.bonusTimer >= state.bonusCooldown) {
+    state.bonusTimer = 0;
+    state.bonusCooldown = 14000 + Math.random() * 8000;
+    if (state.bonuses.length < 1) spawnBonus();
+  }
+
   state.enemyTimer += dt;
   if (state.enemyTimer >= state.enemyCooldown) {
     state.enemyTimer = 0;
     state.enemyCooldown = 6000 + Math.random() * 4000;
-    const regularCount = state.enemies.filter(e => e.type !== 'alex').length;
+    const regularCount = state.enemies.filter(e => e.type !== 'alex' && !e.leaving).length;
     if (regularCount < 2 && Math.random() < 0.75) spawnEnemy();
   }
   state.alexTimer += dt;
   if (state.alexTimer >= state.alexCooldown) {
     state.alexTimer = 0;
     state.alexCooldown = 14000 + Math.random() * 6000;
-    if (!state.enemies.some(e => e.type === 'alex') && Math.random() < 0.7) spawnEnemy('alex');
+    if (!state.enemies.some(e => e.type === 'alex' && !e.leaving) && Math.random() < 0.7) spawnEnemy('alex');
   }
   state.ilyaTimer += dt;
   if (state.ilyaTimer >= state.ilyaCooldown) {
@@ -886,7 +1149,8 @@ function stepSnake(now) {
   const nx = head.x + state.dir.x, ny = head.y + state.dir.y;
   if (!isWalkable(nx, ny)) return gameOver('wall');
   const willGrow = state.leaves.some(l => l.x === nx && l.y === ny) || state.bpmns.some(b => b.x === nx && b.y === ny) ||
-                   (state.offer && state.offer.x === nx && state.offer.y === ny);
+                   (state.offer && state.offer.x === nx && state.offer.y === ny) ||
+                   state.bonuses.some(b => b.x === nx && b.y === ny);
   const bodyToCheck = willGrow ? state.snake : state.snake.slice(0, -1);
   if (bodyToCheck.some(s => s.x === nx && s.y === ny)) return gameOver('self');
 
@@ -907,11 +1171,14 @@ function stepSnake(now) {
       updateComboIndicator();
     }
     state.lastEatTime = now;
-    state.score += 1 * state.combo;
+    let gain = 1 * state.combo;
+    if (state.doubleLeaf > 0) gain *= 2;
+    state.score += gain;
     eatAnimation(nx, ny, 'leaf');
-    addFloater(nx, ny, '+' + (1 * state.combo), '#22c55e');
+    addFloater(nx, ny, '+' + gain, '#22c55e');
     spawnLeaf();
     sfx.leaf();
+    if (state.score >= 10 && state.gameTime < 5000) state.fast10 = true;
   } else {
     const bpmnIdx = state.bpmns.findIndex(b => b.x === nx && b.y === ny);
     if (bpmnIdx >= 0) {
@@ -941,9 +1208,22 @@ function stepSnake(now) {
         winGame();
         return;
       } else {
-        state.snake.pop();
+        const bonusIdx = state.bonuses.findIndex(b => b.x === nx && b.y === ny);
+        if (bonusIdx >= 0) {
+          const bonus = state.bonuses[bonusIdx];
+          state.bonuses.splice(bonusIdx, 1);
+          applyBonus(bonus.type, nx, ny);
+        } else {
+          state.snake.pop();
+        }
       }
     }
+  }
+
+  if (state.score >= 100 && state.phase === 'playing') {
+    state.fullTz = true;
+    fullTzEnding();
+    return;
   }
 
   const newLevel = Math.floor(state.score / 30) + 1;
@@ -956,9 +1236,33 @@ function stepSnake(now) {
   updateHUD();
 }
 
+function applyBonus(type, nx, ny) {
+  if (type === 'vape') {
+    state.smoke = 5000;
+    state.vapeUsed = true;
+    addFloater(nx, ny, '🚬 Дым!', '#94a3b8');
+    sfx.vape();
+    burstEffect(nx, ny, '#64748b', 20);
+  } else if (type === 'bike') {
+    state.speedBoost = 5000;
+    state.bikeUsed = true;
+    addFloater(nx, ny, '🚲 Ускорение!', '#38bdf8');
+    sfx.bike();
+    burstEffect(nx, ny, '#38bdf8', 15);
+  } else if (type === 'cookie') {
+    state.doubleLeaf = 10000;
+    state.cookieUsed = true;
+    addFloater(nx, ny, '🍪 x2 ТЗ!', '#f59e0b');
+    sfx.cookie();
+    burstEffect(nx, ny, '#f59e0b', 15);
+  }
+  state.snake.pop();
+}
+
 function moveEnemy(en) {
-  if (en.falling > 0) return;
+  if (en.falling > 0 || en.leaving) return;
   if (!state.snake.length) return;
+  if (state.smoke > 0) return;
   const head = state.snake[0];
   const path = bfsPath(en.x, en.y, head.x, head.y);
   if (!path || path.length < 2) return;
@@ -1014,9 +1318,17 @@ function addFloater(x, y, text, color) {
   state.floaters.push({ x: x * TILE + TILE / 2, y: y * TILE + TILE / 2 - 10, text, color, life: 900, maxLife: 900 });
 }
 
-// ============================================================
-//  ДОСТИЖЕНИЯ — ТОСТ
-// ============================================================
+function showReaction(type) {
+  const arr = REACTIONS[type];
+  if (!arr) return;
+  const r = arr[Math.floor(Math.random() * arr.length)];
+  const toast = document.getElementById('ach-toast');
+  document.getElementById('toast-icon').innerHTML = '';
+  document.getElementById('toast-text').textContent = r.text;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 let toastQueue = [];
 let toastShowing = false;
 
@@ -1050,39 +1362,51 @@ function checkAchievements(achState) {
   saveSave(save);
 }
 
-// ============================================================
-//  ПОБЕДА (ОФФЕР)
-// ============================================================
+function collectAchievementState() {
+  const ownedSkins = SKINS.filter(s => save.skins[s.id]).map(s => s.id);
+  const normalAch = ACHIEVEMENTS.filter(a => !a.secret);
+  const allNormal = normalAch.every(a => save.achievements[a.id]);
+  return {
+    totalLeaves: save.totalLeaves, totalGames: save.totalGames,
+    score: state.score, bpmnCount: state.bpmnCount,
+    ilyaCount: state.ilyaCount, auraHits: state.auraHits, freezeCount: state.freezeCount,
+    gameTime: state.gameTime, maxCombo: state.maxCombo,
+    metSasha: state.metSasha, metKatya: state.metKatya, metAlex: state.metAlex, metIlya: state.metIlya,
+    newRecord: state.newRecord, dreamOffer: state.dreamOffer, fullTz: state.fullTz,
+    hasSergey: !!save.skins.sergey, hasDanil: !!save.skins.danil, hasDemid: !!save.skins.demid,
+    allSkins: ownedSkins.length === SKINS.length,
+    vapeUsed: state.vapeUsed, bikeUsed: state.bikeUsed, cookieUsed: state.cookieUsed,
+    fast10: state.fast10,
+    allNormalAch: allNormal,
+  };
+}
+
 function winGame() {
   state.phase = 'win';
   sfx.offer();
-
-  // Сохраняем флаги достижений
   save.totalLeaves += state.score;
   save.totalGames++;
   if (state.score > save.best) save.best = state.score;
   if (state.gameTime > save.bestTime) save.bestTime = state.gameTime;
   saveSave(save);
-
-  const achState = {
-    totalLeaves: save.totalLeaves, score: state.score, bpmnCount: state.bpmnCount,
-    ilyaCount: state.ilyaCount, auraHits: state.auraHits, freezeCount: state.freezeCount,
-    gameTime: state.gameTime, maxCombo: state.maxCombo,
-    metSasha: state.metSasha, metKatya: state.metKatya, metAlex: state.metAlex, metIlya: state.metIlya,
-    newRecord: false, dreamOffer: true,
-  };
-  checkAchievements(achState);
-
-  // Показываем победный экран
+  checkAchievements(collectAchievementState());
   const win = document.getElementById('win-screen');
   win.classList.remove('hidden');
-
-  // Конфетти
   spawnConfetti();
+  showReaction('offer');
+}
 
-  setTimeout(() => {
-    // Персонаж уходит вправо (анимация на canvas)
-  }, 100);
+function fullTzEnding() {
+  state.phase = 'fulltz';
+  sfx.fulltz();
+  save.totalLeaves += state.score;
+  save.totalGames++;
+  if (state.score > save.best) { save.best = state.score; state.newRecord = true; }
+  if (state.gameTime > save.bestTime) save.bestTime = state.gameTime;
+  if (state.maxCombo > save.maxComboEver) save.maxComboEver = state.maxCombo;
+  saveSave(save);
+  checkAchievements(collectAchievementState());
+  document.getElementById('fulltz-screen').classList.remove('hidden');
 }
 
 function spawnConfetti() {
@@ -1105,48 +1429,29 @@ function spawnConfetti() {
 document.getElementById('go-new-job').addEventListener('click', () => {
   sfx.click();
   document.getElementById('win-screen').classList.add('hidden');
-  // Анимация ухода персонажа
-  state.escaping = true;
-  state.escapeX = 0;
-  // Сброс в меню после анимации
-  setTimeout(() => {
-    state.escaping = false;
-    document.getElementById('menu').classList.remove('hidden');
-    state.phase = 'menu';
-    state.office = generateOffice();
-    state.snake = []; state.enemies = []; state.leaves = []; state.bpmns = []; state.ilyas = [];
-    state.particles = []; state.floaters = []; state.trail = []; state.offer = null;
-    state.frozen = 0; state.aura = 0;
-    updateBuffIndicator();
-    updateMenuStats();
-    render();
-  }, 1200);
+  document.getElementById('win-screen').querySelectorAll('.confetti').forEach(c => c.remove());
+  toMenu();
 });
 
-// ============================================================
-//  GAME OVER
-// ============================================================
+document.getElementById('go-home').addEventListener('click', () => {
+  sfx.click();
+  document.getElementById('fulltz-screen').classList.add('hidden');
+  toMenu();
+});
+
 function gameOver(cause) {
   if (state.phase === 'gameover') return;
   state.phase = 'gameover';
   sfx.gameover();
 
-  const isRecord = state.score > save.best;
-  if (isRecord) { save.best = state.score; state.newRecord = true; }
+  if (state.score > save.best) { save.best = state.score; state.newRecord = true; }
   if (state.gameTime > save.bestTime) save.bestTime = state.gameTime;
   save.totalLeaves += state.score;
   save.totalBpmn += state.bpmnCount;
   save.totalGames++;
   if (state.maxCombo > save.maxComboEver) save.maxComboEver = state.maxCombo;
 
-  const achState = {
-    totalLeaves: save.totalLeaves, score: state.score, bpmnCount: state.bpmnCount,
-    ilyaCount: state.ilyaCount, auraHits: state.auraHits, freezeCount: state.freezeCount,
-    gameTime: state.gameTime, maxCombo: state.maxCombo,
-    metSasha: state.metSasha, metKatya: state.metKatya, metAlex: state.metAlex, metIlya: state.metIlya,
-    newRecord: state.newRecord, dreamOffer: state.dreamOffer,
-  };
-  checkAchievements(achState);
+  checkAchievements(collectAchievementState());
 
   const goTitle = document.getElementById('go-title');
   const speaker = document.getElementById('dialog-speaker');
@@ -1185,21 +1490,30 @@ function gameOver(cause) {
   document.getElementById('best').textContent = save.best;
   saveSave(save);
   document.getElementById('gameover').classList.remove('hidden');
-  updateMenuStats();
 }
 
 function updateHUD() {
   document.getElementById('score').textContent = state.score;
   document.getElementById('level').textContent = state.level;
   document.getElementById('best').textContent = save.best;
+  const isDay = state.dayPhase < 0.5;
+  document.getElementById('clock-val').textContent = isDay ? 'День' : 'Ночь';
 }
 
 function updateBuffIndicator() {
   const ind = document.getElementById('buff-indicator');
-  if (state.aura > 0) {
+  const parts = [];
+  if (state.aura > 0) parts.push(`🛡 ${(state.aura/1000).toFixed(1)}`);
+  if (state.smoke > 0) parts.push(`🚬 ${(state.smoke/1000).toFixed(1)}`);
+  if (state.speedBoost > 0) parts.push(`🚲 ${(state.speedBoost/1000).toFixed(1)}`);
+  if (state.doubleLeaf > 0) parts.push(`🍪 ${(state.doubleLeaf/1000).toFixed(1)}`);
+  if (state.frozen > 0) parts.push(`❄️ ${(state.frozen/1000).toFixed(1)}`);
+  if (parts.length > 0) {
     ind.style.display = 'inline';
-    document.getElementById('buff-time').textContent = (state.aura / 1000).toFixed(1);
-  } else ind.style.display = 'none';
+    document.getElementById('buff-time').textContent = parts.join(' ');
+  } else {
+    ind.style.display = 'none';
+  }
 }
 
 function updateComboIndicator() {
@@ -1210,17 +1524,24 @@ function updateComboIndicator() {
   } else ind.style.display = 'none';
 }
 
-// ============================================================
-//  РЕНДЕР
-// ============================================================
+function getDayNightTint() {
+  const p = state.dayPhase;
+  if (p < 0.4) return 0;
+  if (p < 0.5) return (p - 0.4) / 0.1;
+  if (p < 0.9) return 1;
+  return 1 - (p - 0.9) / 0.1;
+}
+
 function render() {
   ctx.fillStyle = '#f1f5f9';
   ctx.fillRect(0, 0, W, H);
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
-      if ((x + y) % 2 === 0) {
-        ctx.fillStyle = '#e2e8f0';
-        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+  if (save.settings.grid) {
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        if ((x + y) % 2 === 0) {
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        }
       }
     }
   }
@@ -1235,7 +1556,7 @@ function render() {
   state.trail.forEach(t => {
     const a = t.life / t.maxLife;
     ctx.globalAlpha = a * 0.3;
-    ctx.fillStyle = getSkin().shirtColor;
+    ctx.fillStyle = state.combo >= 5 ? '#f59e0b' : getSkin().shirtColor;
     ctx.beginPath();
     ctx.arc(t.x * TILE + TILE/2, t.y * TILE + TILE/2, 8 * a, 0, Math.PI * 2);
     ctx.fill();
@@ -1244,19 +1565,16 @@ function render() {
 
   state.leaves.forEach(l => drawLeaf(l.x, l.y));
   state.bpmns.forEach(b => drawBPMN(b.x, b.y));
+  state.bonuses.forEach(b => drawBonus(b));
   if (state.offer) drawOffer(state.offer);
   state.ilyas.forEach(il => drawIlya(il));
   state.enemies.forEach(e => drawEnemy(e));
 
   if (state.snake.length) {
-    const escapeOffset = state.escaping ? state.escapeX : 0;
-    ctx.save();
-    ctx.translate(escapeOffset, 0);
     for (let i = state.snake.length - 1; i >= 0; i--) drawSnakeSegment(state.snake[i], i === 0, i);
-    ctx.restore();
   }
 
-  if (state.aura > 0 && state.snake.length && !state.escaping) {
+  if (state.aura > 0 && state.snake.length) {
     const head = state.snake[0];
     const cx = head.x * TILE + TILE / 2, cy = head.y * TILE + TILE / 2;
     const pulse = 0.6 + Math.abs(Math.sin(state.animTime / 200)) * 0.4;
@@ -1270,6 +1588,32 @@ function render() {
     ctx.strokeStyle = `rgba(192, 132, 252, ${pulse})`;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, radius * 0.85, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  if (state.smoke > 0 && state.snake.length) {
+    const head = state.snake[0];
+    const cx = head.x * TILE + TILE / 2, cy = head.y * TILE + TILE / 2;
+    for (let i = 0; i < 3; i++) {
+      const r = TILE * (1.2 + i * 0.4) + Math.sin(state.animTime / 300 + i) * 5;
+      const alpha = 0.25 - i * 0.06;
+      ctx.fillStyle = `rgba(148, 163, 184, ${alpha})`;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  if (state.speedBoost > 0 && state.snake.length) {
+    const head = state.snake[0];
+    const cx = head.x * TILE + TILE / 2, cy = head.y * TILE + TILE / 2;
+    const rot = state.animTime / 100;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 4; i++) {
+      const a = rot + i * Math.PI / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * TILE * 0.5, cy + Math.sin(a) * TILE * 0.5);
+      ctx.lineTo(cx + Math.cos(a + Math.PI) * TILE * 0.5, cy + Math.sin(a + Math.PI) * TILE * 0.5);
+      ctx.stroke();
+    }
   }
 
   if (state.frozen > 0 && state.snake.length) {
@@ -1304,6 +1648,12 @@ function render() {
     ctx.textAlign = 'left';
   });
   ctx.globalAlpha = 1;
+
+  const tint = getDayNightTint();
+  if (tint > 0) {
+    ctx.fillStyle = `rgba(15, 23, 42, ${tint * 0.6})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
 function drawOfficeTile(x, y, t) {
@@ -1371,42 +1721,43 @@ function drawBPMN(x, y) {
   ctx.fillStyle = '#7dd3fc'; ctx.fillRect(px + 15, py + 11, 4, 1.5); ctx.fillRect(px + 16, py + 15, 1.5, 3);
 }
 
-// Красная иконка HH.ru — как логотип
+function drawBonus(b) {
+  const px = b.x * TILE, py = b.y * TILE;
+  const bob = Math.sin(state.animTime / 300 + b.x) * 2;
+  const blink = b.lifeLeft < 3000 && Math.floor(state.animTime / 200) % 2 === 0;
+  if (blink) return;
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath(); ctx.ellipse(px + TILE/2, py + TILE - 4, TILE/2 - 5, 3, 0, 0, Math.PI*2); ctx.fill();
+  const colors = { vape: '#64748b', bike: '#38bdf8', cookie: '#f59e0b' };
+  const icons = { vape: '🚬', bike: '🚲', cookie: '🍪' };
+  ctx.fillStyle = colors[b.type] + '33';
+  ctx.beginPath(); ctx.arc(px + TILE/2, py + TILE/2 + bob, TILE * 0.8, 0, Math.PI*2); ctx.fill();
+  ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(icons[b.type], px + TILE/2, py + TILE/2 + bob + 2);
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+}
+
 function drawOffer(o) {
   const px = o.x * TILE, py = o.y * TILE;
   const blink = Math.floor(state.animTime / 150) % 2 === 0;
   const scale = blink ? 1 : 0.88;
   const cx = px + TILE/2, cy = py + TILE/2;
-
   const pulse = 0.5 + Math.abs(Math.sin(state.animTime / 200)) * 0.5;
   ctx.globalAlpha = 0.4 * pulse;
   ctx.fillStyle = '#dc2626';
   ctx.beginPath(); ctx.arc(cx, cy, TILE * 0.95, 0, Math.PI*2); ctx.fill();
   ctx.globalAlpha = 1;
-
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(scale, scale);
-  ctx.translate(-cx, -cy);
-
-  // Красный квадрат hh.ru
+  ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
   ctx.fillStyle = '#dc2626';
   roundRect(px + 3, py + 3, TILE - 6, TILE - 6, 5); ctx.fill();
-
-  // Белая обводка
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5;
   roundRect(px + 3, py + 3, TILE - 6, TILE - 6, 5); ctx.stroke();
-
-  // Логотип hh
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 14px Arial';
-  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center';
   ctx.fillText('hh', cx, py + 18);
   ctx.font = 'bold 8px Arial';
   ctx.fillText('.ru', cx, py + 27);
   ctx.textAlign = 'left';
-
   ctx.restore();
 }
 
@@ -1425,12 +1776,10 @@ function drawIlya(il) {
   ctx.fillText('И', px + TILE/2, py + 24 + bob);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   ctx.fillStyle = '#fed7aa'; ctx.beginPath(); ctx.arc(px + TILE/2, py + 11 + bob, 9, 0, Math.PI*2); ctx.fill();
-  // Крупные волосы
   ctx.fillStyle = '#b45309';
   ctx.beginPath(); ctx.arc(px + TILE/2, py + 8 + bob, 10, Math.PI, 0); ctx.fill();
   ctx.fillRect(px + 4, py + 8 + bob, 4, 12);
   ctx.fillRect(px + TILE - 8, py + 8 + bob, 4, 12);
-  // глаза
   const eyeBlink = Math.floor(state.animTime / 500) % 6 === 0;
   ctx.fillStyle = '#1e293b';
   if (eyeBlink) {
@@ -1459,16 +1808,19 @@ function drawSnakeSegment(seg, isHead, idx) {
   const walk = state.stepPhase === 0 ? -1 : 1;
   const frozen = state.frozen > 0;
   const skin = getSkin();
+  const comboFire = state.combo >= 5;
 
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   ctx.beginPath(); ctx.ellipse(px + TILE/2, py + TILE - 5, TILE/2 - 5, 3, 0, 0, Math.PI*2); ctx.fill();
 
   if (isHead) {
     const bodyBob = frozen ? 0 : walk * 1;
-    // Тёмный контур (outline) для тела
+    if (comboFire) {
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
+      roundRect(px + 3, py + 12 + bodyBob, TILE - 6, TILE - 12, 7); ctx.fill();
+    }
     ctx.fillStyle = skin.outline;
     roundRect(px + 5, py + 14 + bodyBob, TILE - 10, TILE - 14, 6); ctx.fill();
-    // Тело
     ctx.fillStyle = frozen ? '#7dd3fc' : skin.shirtColor;
     roundRect(px + 7, py + 16 + bodyBob, TILE - 14, TILE - 18, 5); ctx.fill();
     ctx.fillStyle = frozen ? '#0ea5e9' : skin.shirtStripe;
@@ -1486,20 +1838,16 @@ function drawSnakeSegment(seg, isHead, idx) {
       }
     }
 
-    // Голова
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath(); ctx.arc(px + TILE/2, py + 11 + bodyBob, 9, 0, Math.PI*2); ctx.fill();
 
-    // Крупные волосы (закрывают голову)
     ctx.fillStyle = skin.hairColor;
     if (skin.hairStyle === 'mohawk') {
-      // ирокез — высокий
       ctx.beginPath();
       ctx.moveTo(px + TILE/2 - 4, py + 4 + bodyBob);
       ctx.lineTo(px + TILE/2 + 4, py + 4 + bodyBob);
       ctx.lineTo(px + TILE/2, py + 12 + bodyBob);
       ctx.closePath(); ctx.fill();
-      // Шапка волос
       ctx.beginPath(); ctx.arc(px + TILE/2, py + 9 + bodyBob, 10, Math.PI, 0); ctx.fill();
       ctx.fillRect(px + 3, py + 9 + bodyBob, 4, 10);
       ctx.fillRect(px + TILE - 7, py + 9 + bodyBob, 4, 10);
@@ -1511,28 +1859,26 @@ function drawSnakeSegment(seg, isHead, idx) {
       ctx.beginPath(); ctx.arc(px + TILE/2, py + 8 + bodyBob, 10, Math.PI, 0); ctx.fill();
     }
 
-    // Борода
     if (skin.hasBeard) {
       ctx.fillStyle = skin.hairColor;
       ctx.beginPath();
       ctx.arc(px + TILE/2, py + 15 + bodyBob, 8, 0, Math.PI);
       ctx.fill();
-      // усы
       ctx.fillRect(px + TILE/2 - 5, py + 14 + bodyBob, 10, 2);
     }
 
-    // Глаза с морганием
+    const closeEnemy = state.enemies.some(en => !en.leaving && Math.abs(en.x - seg.x) <= 2 && Math.abs(en.y - seg.y) <= 2);
     const eyeBlink = Math.floor(state.animTime / 600) % 8 === 0;
     const d = state.dir;
     ctx.fillStyle = '#1e293b';
     if (eyeBlink) {
-      if (d.x >= 0) {
-        ctx.fillRect(px + TILE/2 - 4, py + 12 + bodyBob, 3, 1);
-        ctx.fillRect(px + TILE/2 + 1, py + 12 + bodyBob, 3, 1);
-      } else {
-        ctx.fillRect(px + TILE/2 - 4, py + 12 + bodyBob, 3, 1);
-        ctx.fillRect(px + TILE/2 + 1, py + 12 + bodyBob, 3, 1);
-      }
+      ctx.fillRect(px + TILE/2 - 4, py + 12 + bodyBob, 3, 1);
+      ctx.fillRect(px + TILE/2 + 1, py + 12 + bodyBob, 3, 1);
+    } else if (closeEnemy) {
+      ctx.fillRect(px + TILE/2 - 6, py + 10 + bodyBob, 4, 1.5);
+      ctx.fillRect(px + TILE/2 + 2, py + 10 + bodyBob, 4, 1.5);
+      ctx.beginPath(); ctx.arc(px + TILE/2 - 2, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(px + TILE/2 + 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
     } else {
       if (d.x >= 0) {
         ctx.beginPath(); ctx.arc(px + TILE/2 - 2, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
@@ -1544,7 +1890,10 @@ function drawSnakeSegment(seg, isHead, idx) {
     }
   } else {
     const bodyBob = frozen ? 0 : walk * 0.8;
-    // Тёмный контур
+    if (comboFire) {
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.3)';
+      roundRect(px + 4, py + 4 + bodyBob, TILE - 8, TILE - 8, 8); ctx.fill();
+    }
     ctx.fillStyle = frozen ? '#0369a1' : skin.outline;
     roundRect(px + 6, py + 6 + bodyBob, TILE - 12, TILE - 12, 8); ctx.fill();
     ctx.fillStyle = frozen ? '#bae6fd' : skin.shirtColor;
@@ -1556,7 +1905,7 @@ function drawSnakeSegment(seg, isHead, idx) {
 
 function drawEnemy(e) {
   const px = e.x * TILE, py = e.y * TILE;
-  const lifeRatio = e.lifeLeft / DIFFS[state.diff].enemyLife;
+  const lifeRatio = Math.max(0, e.lifeLeft) / DIFFS[state.diff].enemyLife;
 
   if (e.falling > 0) {
     const progress = 1 - e.falling / 1200;
@@ -1567,26 +1916,29 @@ function drawEnemy(e) {
     ctx.translate(px + TILE/2, py + TILE/2 + offsetY);
     ctx.scale(scale, scale);
     ctx.translate(-(px + TILE/2), -(py + TILE/2));
-    drawEnemyBody(e, px, py, 0);
+    drawEnemyBody(e, px, py, 0, false);
     ctx.restore();
     return;
   }
 
-  if (lifeRatio < 0.3 && e.type !== 'alex') {
+  if (lifeRatio < 0.3 && e.type !== 'alex' && !e.leaving) {
     ctx.globalAlpha = 0.3 + Math.sin(state.animTime/100) * 0.2;
     ctx.fillStyle = '#ef4444';
     ctx.beginPath(); ctx.arc(px + TILE/2, py + TILE/2, TILE/2, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
   }
 
-  drawEnemyBody(e, px, py, Math.sin(e.walkPhase / 100) > 0 ? 1 : -1);
+  const closeToHead = state.snake[0] && Math.abs(state.snake[0].x - e.x) <= 2 && Math.abs(state.snake[0].y - e.y) <= 2;
+  drawEnemyBody(e, px, py, Math.sin(e.walkPhase / 100) > 0 ? 1 : -1, closeToHead);
 
-  const barW = TILE - 8, barX = px + 4, barY = py - 4;
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  roundRect(barX, barY, barW, 4, 2); ctx.fill();
-  const barColor = e.type === 'alex' ? '#94a3b8' : (lifeRatio > 0.5 ? '#22c55e' : lifeRatio > 0.25 ? '#f59e0b' : '#ef4444');
-  ctx.fillStyle = barColor;
-  roundRect(barX, barY, barW * lifeRatio, 4, 2); ctx.fill();
+  if (!e.leaving) {
+    const barW = TILE - 8, barX = px + 4, barY = py - 4;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    roundRect(barX, barY, barW, 4, 2); ctx.fill();
+    const barColor = e.type === 'alex' ? '#94a3b8' : (lifeRatio > 0.5 ? '#22c55e' : lifeRatio > 0.25 ? '#f59e0b' : '#ef4444');
+    ctx.fillStyle = barColor;
+    roundRect(barX, barY, barW * lifeRatio, 4, 2); ctx.fill();
+  }
 
   ctx.fillStyle = '#1e293b';
   ctx.font = 'bold 10px "Segoe UI", sans-serif';
@@ -1596,7 +1948,7 @@ function drawEnemy(e) {
   ctx.textAlign = 'left';
 }
 
-function drawEnemyBody(e, px, py, walk) {
+function drawEnemyBody(e, px, py, walk, angry) {
   const bodyBob = walk * 1.2;
   const isSasha = e.type === 'sasha';
   const isKatya = e.type === 'katya';
@@ -1630,47 +1982,34 @@ function drawEnemyBody(e, px, py, walk) {
 
   const eyeBlink = Math.floor(state.animTime / 700) % 8 === 0;
   if (isSasha) {
-    // Крупные волосы
     ctx.fillStyle = '#fbbf24';
     ctx.beginPath(); ctx.arc(px + TILE/2, py + 8 + bodyBob, 10, Math.PI, 0); ctx.fill();
     ctx.fillRect(px + 3, py + 8 + bodyBob, 4, 16);
     ctx.fillRect(px + TILE - 7, py + 8 + bodyBob, 4, 16);
-    ctx.fillStyle = '#1e293b';
-    if (eyeBlink) {
-      ctx.fillRect(px + TILE/2 - 5, py + 12 + bodyBob, 3, 1);
-      ctx.fillRect(px + TILE/2 + 2, py + 12 + bodyBob, 3, 1);
-    } else {
-      ctx.beginPath(); ctx.arc(px + TILE/2 - 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(px + TILE/2 + 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
-    }
   } else if (isKatya) {
     ctx.fillStyle = '#1e293b';
     ctx.beginPath(); ctx.arc(px + TILE/2, py + 8 + bodyBob, 10, Math.PI, 0); ctx.fill();
     ctx.fillRect(px + 3, py + 8 + bodyBob, 4, 16);
     ctx.fillRect(px + TILE - 7, py + 8 + bodyBob, 4, 16);
-    ctx.fillStyle = '#1e293b';
-    if (eyeBlink) {
-      ctx.fillRect(px + TILE/2 - 5, py + 12 + bodyBob, 3, 1);
-      ctx.fillRect(px + TILE/2 + 2, py + 12 + bodyBob, 3, 1);
-    } else {
-      ctx.beginPath(); ctx.arc(px + TILE/2 - 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(px + TILE/2 + 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
-    }
   } else if (isAlex) {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.beginPath(); ctx.ellipse(px + TILE/2 - 2, py + 6 + bodyBob, 4, 2.5, 0, 0, Math.PI*2); ctx.fill();
-    // крупная борода
     ctx.fillStyle = '#4a3520';
     ctx.beginPath(); ctx.arc(px + TILE/2, py + 16 + bodyBob, 9, 0, Math.PI); ctx.fill();
     ctx.fillRect(px + TILE/2 - 5, py + 14 + bodyBob, 10, 2);
-    ctx.fillStyle = '#1e293b';
-    if (eyeBlink) {
-      ctx.fillRect(px + TILE/2 - 5, py + 11 + bodyBob, 3, 1);
-      ctx.fillRect(px + TILE/2 + 2, py + 11 + bodyBob, 3, 1);
-    } else {
-      ctx.beginPath(); ctx.arc(px + TILE/2 - 3, py + 11 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
-      ctx.beginPath(); ctx.arc(px + TILE/2 + 3, py + 11 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
+  }
+
+  ctx.fillStyle = '#1e293b';
+  if (eyeBlink) {
+    ctx.fillRect(px + TILE/2 - 5, py + 12 + bodyBob, 3, 1);
+    ctx.fillRect(px + TILE/2 + 2, py + 12 + bodyBob, 3, 1);
+  } else {
+    if (angry) {
+      ctx.fillRect(px + TILE/2 - 6, py + 10 + bodyBob, 4, 1.5);
+      ctx.fillRect(px + TILE/2 + 2, py + 10 + bodyBob, 4, 1.5);
     }
+    ctx.beginPath(); ctx.arc(px + TILE/2 - 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(px + TILE/2 + 3, py + 12 + bodyBob, 1.8, 0, Math.PI*2); ctx.fill();
   }
 
   ctx.font = '11px Arial'; ctx.textAlign = 'center';
@@ -1679,9 +2018,6 @@ function drawEnemyBody(e, px, py, walk) {
   ctx.textAlign = 'left';
 }
 
-// ============================================================
-//  УПРАВЛЕНИЕ
-// ============================================================
 const keyMap = {
   ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
   w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
@@ -1693,8 +2029,10 @@ const keyMap = {
 document.addEventListener('keydown', (e) => {
   if (e.key === ' ') {
     e.preventDefault();
-    if (state.phase === 'playing') { state.phase = 'paused'; document.getElementById('pause').classList.remove('hidden'); }
-    else if (state.phase === 'paused') {
+    if (state.phase === 'playing') {
+      state.phase = 'paused';
+      document.getElementById('pause').classList.remove('hidden');
+    } else if (state.phase === 'paused') {
       state.phase = 'playing';
       state.lastTick = performance.now();
       state.lastFrame = performance.now();
@@ -1739,9 +2077,6 @@ document.querySelectorAll('.dpad-btn').forEach(btn => {
   btn.addEventListener('mousedown', handler);
 });
 
-// ============================================================
-//  МЕНЮ
-// ============================================================
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1752,25 +2087,45 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
+document.getElementById('btn-play').addEventListener('click', () => {
+  sfx.click();
+  document.getElementById('diff-screen').classList.remove('hidden');
+});
+
+document.getElementById('diff-back').addEventListener('click', () => {
+  sfx.click();
+  document.getElementById('diff-screen').classList.add('hidden');
+});
+
 document.querySelectorAll('.btn.diff').forEach(btn => {
   btn.addEventListener('click', () => startGame(btn.dataset.diff));
 });
+
 document.getElementById('restart').addEventListener('click', () => {
   document.getElementById('gameover').classList.add('hidden');
-  startGame(state.diff);
+  document.getElementById('diff-screen').classList.remove('hidden');
 });
-document.getElementById('to-menu').addEventListener('click', () => {
+
+document.getElementById('to-menu').addEventListener('click', toMenu);
+
+function toMenu() {
+  document.getElementById('game').style.display = 'none';
   document.getElementById('gameover').classList.add('hidden');
-  document.getElementById('menu').classList.remove('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('fulltz-screen').classList.add('hidden');
+  document.getElementById('diff-screen').classList.add('hidden');
+  document.getElementById('pause').classList.add('hidden');
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('pause-hint').style.display = 'none';
+  document.getElementById('mobile-controls').style.display = 'none';
+  document.getElementById('menu-screen').classList.remove('hidden');
   state.phase = 'menu';
   state.office = generateOffice();
   state.snake = []; state.enemies = []; state.leaves = []; state.bpmns = []; state.ilyas = [];
-  state.particles = []; state.floaters = []; state.trail = []; state.offer = null;
-  state.frozen = 0; state.aura = 0;
-  updateBuffIndicator();
+  state.particles = []; state.floaters = []; state.trail = []; state.offer = null; state.bonuses = [];
+  state.frozen = 0; state.aura = 0; state.smoke = 0; state.speedBoost = 0; state.doubleLeaf = 0;
   updateMenuStats();
-  render();
-});
+}
 
 document.getElementById('reset-ach').addEventListener('click', () => {
   if (confirm('Точно сбросить все достижения? Это необратимо.')) {
@@ -1783,17 +2138,77 @@ document.getElementById('reset-ach').addEventListener('click', () => {
 
 document.getElementById('reset-stats').addEventListener('click', () => {
   if (confirm('Точно сбросить всю статистику? Это необратимо.')) {
-    save.best = 0;
-    save.bestTime = 0;
-    save.totalLeaves = 0;
-    save.totalBpmn = 0;
-    save.totalGames = 0;
-    save.maxComboEver = 0;
+    save.best = 0; save.bestTime = 0; save.totalLeaves = 0;
+    save.totalBpmn = 0; save.totalGames = 0; save.maxComboEver = 0;
     saveSave(save);
     updateMenuStats();
     sfx.click();
   }
 });
+
+document.getElementById('toggle-sound').addEventListener('click', () => {
+  save.settings.sound = !save.settings.sound;
+  soundEnabled = save.settings.sound;
+  saveSave(save);
+  updateSettingsUI();
+});
+document.getElementById('toggle-shake').addEventListener('click', () => {
+  save.settings.shake = !save.settings.shake;
+  saveSave(save);
+  updateSettingsUI();
+});
+document.getElementById('toggle-grid').addEventListener('click', () => {
+  save.settings.grid = !save.settings.grid;
+  saveSave(save);
+  updateSettingsUI();
+});
+function updateSettingsUI() {
+  const s = document.getElementById('toggle-sound');
+  s.textContent = save.settings.sound ? 'ВКЛ' : 'ВЫКЛ';
+  s.className = 'toggle-btn ' + (save.settings.sound ? 'on' : '');
+  const sh = document.getElementById('toggle-shake');
+  sh.textContent = save.settings.shake ? 'ВКЛ' : 'ВЫКЛ';
+  sh.className = 'toggle-btn ' + (save.settings.shake ? 'on' : '');
+  const g = document.getElementById('toggle-grid');
+  g.textContent = save.settings.grid ? 'ВКЛ' : 'ВЫКЛ';
+  g.className = 'toggle-btn ' + (save.settings.grid ? 'on' : '');
+}
+
+document.getElementById('pause-resume').addEventListener('click', () => {
+  state.phase = 'playing';
+  state.lastTick = performance.now();
+  state.lastFrame = performance.now();
+  document.getElementById('pause').classList.add('hidden');
+});
+
+let tutIndex = 0;
+document.getElementById('pause-tutorial').addEventListener('click', () => {
+  tutIndex = 0;
+  showTutorialStep();
+  document.getElementById('tutorial').classList.remove('hidden');
+});
+document.getElementById('tut-prev').addEventListener('click', () => {
+  if (tutIndex > 0) { tutIndex--; showTutorialStep(); }
+});
+document.getElementById('tut-next').addEventListener('click', () => {
+  if (tutIndex < TUTORIAL_STEPS.length - 1) { tutIndex++; showTutorialStep(); }
+});
+document.getElementById('tut-close').addEventListener('click', () => {
+  document.getElementById('tutorial').classList.add('hidden');
+});
+function showTutorialStep() {
+  const s = TUTORIAL_STEPS[tutIndex];
+  document.getElementById('tut-icon').textContent = s.icon;
+  document.getElementById('tut-title').textContent = s.title;
+  document.getElementById('tut-text').textContent = s.text;
+  const dots = document.getElementById('tut-dots');
+  dots.innerHTML = '';
+  TUTORIAL_STEPS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'tut-dot' + (i === tutIndex ? ' active' : '');
+    dots.appendChild(d);
+  });
+}
 
 function updateMenuStats() {
   document.getElementById('best').textContent = save.best;
@@ -1802,6 +2217,7 @@ function updateMenuStats() {
   renderAchievements();
   renderStats();
   renderShop();
+  updateSettingsUI();
 }
 
 function renderAchievements() {
@@ -1817,7 +2233,7 @@ function renderAchievements() {
     const showDesc = a.secret && !isUnlocked ? 'Секретное достижение' : a.desc;
     const iconClass = a.secret && !isUnlocked ? 'ach-icon blurred' : 'ach-icon';
     card.innerHTML = `
-      <div class="${iconClass}">${a.secret && !isUnlocked ? a.icon : a.icon}</div>
+      <div class="${iconClass}">${a.icon}</div>
       <div class="ach-info">
         <div class="ach-name">${showName}</div>
         <div class="ach-desc">${showDesc}</div>
@@ -1858,7 +2274,7 @@ function renderShop() {
     card.innerHTML = `
       <div class="shop-skin">${skinSvg}</div>
       <div class="shop-name">${skin.name}</div>
-      <div class="shop-desc">${skin.desc}</div>
+      <div class="shop-bonus">${skin.bonus}</div>
       ${!owned ? `<div class="shop-price">${skin.price} 📄</div>` : ''}
       <button class="btn small ${equipped ? 'equipped' : (owned ? '' : 'buy')}" data-skin="${skin.id}" ${equipped ? 'disabled' : ''}>${btnText}</button>
     `;
@@ -1879,6 +2295,10 @@ function renderShop() {
         save.currentSkin = skinId;
         saveSave(save);
         updateMenuStats();
+        checkAchievements({
+          hasSergey: !!save.skins.sergey, hasDanil: !!save.skins.danil, hasDemid: !!save.skins.demid,
+          allSkins: SKINS.every(s => save.skins[s.id]),
+        });
         sfx.ilya();
       } else {
         sfx.click();
@@ -1914,12 +2334,8 @@ function renderSkinSVG(skin) {
   </svg>`;
 }
 
-// ============================================================
-//  ИНИЦИАЛИЗАЦИЯ
-// ============================================================
 state.office = generateOffice();
 updateMenuStats();
-render();
 </script>
 </body>
 </html>
