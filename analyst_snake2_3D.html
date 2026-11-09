@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analcore 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #000; color: #e2e8f0; font-family: 'Segoe UI', Arial, sans-serif; height: 100vh; overflow: hidden; user-select: none; }
+  #game { position: fixed; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; image-rendering: pixelated; }
+  #hud { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; font-size: 15px; font-weight: 600; text-shadow: 2px 2px 0 #000; }
+  #hud .left, #hud .right { display: flex; gap: 16px; }
+  #hud b { color: #38bdf8; font-size: 18px; }
+  #buff-indicator { color: #a855f7; }
+  #fps { color: #22c55e; font-size: 12px; }
+  #debug { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #22c55e; font-family: monospace; font-size: 11px; padding: 6px 10px; border-radius: 4px; z-index: 20; pointer-events: none; display: none; white-space: pre; }
+  #minimap { position: fixed; top: 10px; right: 10px; width: 180px; height: 180px; border: 2px solid #38bdf8; background: rgba(15,23,42,0.8); z-index: 10; }
+  #minimap.big { width: 400px; height: 400px; }
+  #crosshair { position: fixed; top: 50%; left: 50%; width: 4px; height: 4px; background: #fbbf24; transform: translate(-50%,-50%); border-radius: 50%; pointer-events: none; z-index: 10; box-shadow: 0 0 6px #fbbf24; transition: all 0.1s; }
+  #crosshair.enemy { background: #ef4444; box-shadow: 0 0 12px #ef4444; width: 10px; height: 10px; }
+  #msg { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fbbf24; padding: 8px 20px; border-radius: 8px; font-size: 16px; font-weight: 700; opacity: 0; transition: opacity 0.3s; z-index: 20; pointer-events: none; }
+  #msg.show { opacity: 1; }
+  #frozen-icon { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 120px; display: none; z-index: 15; }
+  #frozen-icon.show { display: block; }
+  #damage-flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(220,38,38,0.6); opacity: 0; pointer-events: none; z-index: 5; transition: opacity 0.3s; }
+  #damage-flash.show { opacity: 1; }
+  #key-indicator { position: fixed; bottom: 20px; left: 20px; background: rgba(15,23,42,0.9); border: 2px solid #fbbf24; border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 700; color: #fbbf24; z-index: 10; display: none; }
+  .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.96); display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; padding: 24px; z-index: 100; overflow-y: auto; }
+  .overlay.hidden { display: none; }
+  .overlay h1 { color: #f8fafc; font-size: 44px; font-weight: 900; margin-bottom: 4px; letter-spacing: 2px; }
+  .overlay h1 .accent { color: #38bdf8; }
+  .overlay h2 { color: #f87171; font-size: 32px; font-weight: 800; margin-bottom: 16px; }
+  .overlay p { color: #94a3b8; font-size: 15px; margin: 6px 0; line-height: 1.5; max-width: 600px; }
+  .btn { background: #38bdf8; color: #0f172a; border: none; padding: 14px 32px; font-family: inherit; font-size: 16px; font-weight: 700; cursor: pointer; margin: 6px; border-radius: 12px; transition: transform 0.15s, background 0.2s; box-shadow: 0 4px 12px rgba(56,189,248,0.3); }
+  .btn:hover { background: #7dd3fc; transform: translateY(-2px); }
+  .btn.big { font-size: 20px; padding: 16px 40px; }
+  .btn.diff { background: #334155; color: #e2e8f0; min-width: 220px; }
+  .btn.diff:hover { background: #38bdf8; color: #0f172a; }
+  .btn.small { padding: 8px 16px; font-size: 13px; }
+  .btn.buy { background: #22c55e; }
+  .btn.buy:hover { background: #4ade80; }
+  .btn.equipped { background: #a855f7; color: #fff; }
+  .btn.danger { background: #dc2626; color: #fff; }
+  .diff-desc { font-size: 12px; color: #64748b; margin-top: -2px; margin-bottom: 6px; font-style: italic; }
+  .tabs { display: flex; gap: 4px; margin: 10px 0 14px; flex-wrap: wrap; justify-content: center; }
+  .tab-btn { background: #1e293b; color: #94a3b8; border: none; padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tab-btn:hover { background: #334155; color: #e2e8f0; }
+  .tab-btn.active { background: #38bdf8; color: #0f172a; }
+  .tab-content { display: none; width: 100%; max-width: 660px; }
+  .tab-content.active { display: block; }
+  .preview-row { display: flex; gap: 16px; margin: 10px 0; justify-content: center; align-items: flex-end; flex-wrap: wrap; }
+  .preview-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .preview-item .name { font-size: 11px; font-weight: 700; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; }
+  .preview-item .role { font-size: 9px; color: #94a3b8; }
+  .rules { background: rgba(30,41,59,0.7); border: 1px solid rgba(56,189,248,0.25); border-radius: 12px; padding: 12px 16px; margin: 6px 0 12px; text-align: left; width: 100%; }
+  .rules-title { color: #38bdf8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; text-align: center; }
+  .rules ul { list-style: none; }
+  .rules li { color: #cbd5e1; font-size: 12px; padding: 3px 0; display: flex; gap: 6px; align-items: flex-start; }
+  .rules li .ico { font-size: 14px; flex-shrink: 0; width: 16px; }
+  .rules li b { color: #f8fafc; }
+  .rules li.leaf b { color: #22c55e; }
+  .rules li.bpmn b { color: #38bdf8; }
+  .rules li.danger b { color: #f87171; }
+  .rules li.alex b { color: #94a3b8; }
+  .rules li.ilya b { color: #a855f7; }
+  .rules li.ctrl b { color: #fbbf24; }
+  .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 8px 0; }
+  .ach-card { background: rgba(30,41,59,0.7); border: 1px solid rgba(56,189,248,0.15); border-radius: 10px; padding: 10px; display: flex; gap: 8px; align-items: center; transition: border-color 0.2s, background 0.2s; text-align: left; }
+  .ach-card.locked { opacity: 0.5; filter: grayscale(1); }
+  .ach-card.unlocked { border-color: #fbbf24; background: rgba(251,191,36,0.08); }
+  .ach-card.secret-locked { border-color: #64748b; }
+  .ach-card.secret-unlocked { border-color: #fbbf24; background: rgba(251,191,36,0.12); }
+  .ach-icon { width: 44px; height: 44px; flex-shrink: 0; }
+  .ach-icon.blurred { filter: blur(5px); opacity: 0.4; background: #1e293b; border-radius: 8px; }
+  .ach-info { flex: 1; }
+  .ach-name { font-size: 12px; font-weight: 800; color: #f8fafc; margin-bottom: 2px; }
+  .ach-desc { font-size: 10px; color: #94a3b8; line-height: 1.3; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 8px 0; }
+  .stat-card { background: rgba(30,41,59,0.7); border: 1px solid rgba(56,189,248,0.15); border-radius: 10px; padding: 10px; text-align: center; }
+  .stat-value { font-size: 22px; font-weight: 900; color: #38bdf8; }
+  .stat-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin: 8px 0; }
+  .shop-card { background: rgba(30,41,59,0.7); border: 1px solid rgba(56,189,248,0.15); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .shop-card.owned { border-color: #22c55e; }
+  .shop-card.equipped { border-color: #a855f7; }
+  .shop-name { font-size: 13px; font-weight: 800; color: #f8fafc; }
+  .shop-bonus { font-size: 10px; color: #22c55e; text-align: center; line-height: 1.3; font-weight: 700; margin-top: 2px; }
+  .settings-row { display: flex; justify-content: space-between; align-items: center; background: rgba(30,41,59,0.7); border-radius: 10px; padding: 10px 14px; margin: 6px 0; max-width: 400px; width: 100%; }
+  .settings-row span { color: #e2e8f0; font-size: 14px; font-weight: 600; }
+  .settings-row input[type="range"] { width: 140px; }
+  .settings-row select { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; padding: 4px 8px; border-radius: 6px; font-family: inherit; }
+  .toggle-btn { background: #334155; color: #94a3b8; border: none; padding: 6px 16px; border-radius: 20px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; transition: background 0.2s, color 0.2s; }
+  .toggle-btn.on { background: #22c55e; color: #fff; }
+  #win-screen { background: linear-gradient(135deg, #fef3c7, #fbbf24, #dc2626); background-size: 400% 400%; animation: gradientShift 4s ease infinite; justify-content: center; }
+  @keyframes gradientShift { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+  #win-screen h1 { color: #fff; text-shadow: 4px 4px 0 #dc2626; font-size: 52px; }
+  #win-screen .emoji { font-size: 100px; animation: bounce 1s ease infinite; }
+  @keyframes bounce { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-15px) rotate(5deg); } }
+  #fulltz-screen { background: linear-gradient(135deg, #334155, #0f172a); justify-content: center; }
+  #fulltz-screen .emoji { font-size: 100px; }
+  #dialog { background: rgba(30,41,59,0.9); border-left: 4px solid #f87171; border-radius: 8px; padding: 12px 16px; margin: 12px 0; max-width: 560px; text-align: left; font-style: italic; font-size: 15px; line-height: 1.5; }
+  #dialog .speaker { font-style: normal; font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 4px; color: #f87171; }
+  #dialog .speaker.katya { color: #c084fc; }
+  #game-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; max-width: 500px; }
+  #ach-toast { position: fixed; right: -400px; bottom: 40px; background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #0f172a; padding: 12px 16px; border-radius: 12px; display: flex; gap: 10px; align-items: center; box-shadow: 0 10px 30px rgba(251,191,36,0.5); z-index: 200; transition: right 0.4s cubic-bezier(0.68,-0.55,0.27,1.55); max-width: 320px; }
+  #ach-toast.show { right: 20px; }
+  #ach-toast .toast-icon { width: 40px; height: 40px; flex-shrink: 0; }
+  #ach-toast .toast-text { font-size: 13px; font-weight: 700; }
+  #ach-toast .toast-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+  #mobile-controls { display: none; }
+  @media (max-width: 800px) {
+    #mobile-controls { display: flex; position: fixed; bottom: 20px; left: 20px; right: 20px; justify-content: space-between; z-index: 50; }
+    .mc-group { display: flex; gap: 8px; }
+    .mc-btn { background: rgba(56,189,248,0.8); border: none; border-radius: 12px; width: 55px; height: 55px; font-size: 18px; color: #0f172a; font-weight: 900; touch-action: manipulation; }
+    .mc-btn:active { background: #7dd3fc; }
+  }
+  #shoot-indicator { position: fixed; bottom: 20px; right: 20px; background: rgba(15,23,42,0.9); border: 2px solid #fbbf24; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; color: #fbbf24; z-index: 10; text-align: center; line-height: 1.5; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="crosshair"></div>
+<canvas id="minimap" width="180" height="180"></canvas>
+<div id="hud" style="display:none;">
+  <div class="left">
+    <span>📄 ТЗ: <b id="score">0</b></span>
+    <span id="buff-indicator" style="display:none;"></span>
+    <span id="fps">FPS: --</span>
+  </div>
+  <div class="right">
+    <span>⏱ <b id="timer">0:00</b></span>
+    <span>🏆 <b id="best">0</b></span>
+  </div>
+</div>
+<div id="debug"></div>
+<div id="shoot-indicator" style="display:none;">🔫 ЛКМ — кинуть ТЗ<br>💥 ПКМ — взорвать дверь<br>F — пнуть, E — взять<br>Tab — карта, Shift — бег</div>
+<div id="key-indicator">🔑 Ключ</div>
+<div id="msg"></div>
+<div id="frozen-icon">❄️</div>
+<div id="damage-flash"></div>
+
+<div id="mobile-controls">
+  <div class="mc-group">
+    <button class="mc-btn" data-move="left">◀</button>
+    <button class="mc-btn" data-move="fwd">▲</button>
+    <button class="mc-btn" data-move="right">▶</button>
+  </div>
+  <div class="mc-group">
+    <button class="mc-btn" data-turn="left">↺</button>
+    <button class="mc-btn" data-turn="right">↻</button>
+    <button class="mc-btn" data-move="shoot">🔫</button>
+  </div>
+</div>
+
+<div id="ach-toast">
+  <div class="toast-icon" id="toast-icon"></div>
+  <div>
+    <div class="toast-label">🏆 Достижение</div>
+    <div class="toast-text" id="toast-text"></div>
+  </div>
+</div>
+
+<div class="overlay" id="menu">
+  <h1>Anal<span class="accent">core</span> 3D</h1>
+  <p style="color:#38bdf8; font-style: italic; margin-bottom: 2px;">Собери ТЗ. Не попадись.</p>
+  <p style="color:#fbbf24; font-size: 12px; margin-bottom: 4px;">Всего ТЗ накоплено: <b id="total-leaves">0</b></p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="play">🎮 Играть</button>
+    <button class="tab-btn" data-tab="achievements">🏆 Достижения</button>
+    <button class="tab-btn" data-tab="stats">📊 Статистика</button>
+    <button class="tab-btn" data-tab="shop">🛒 Магазин</button>
+  </div>
+
+  <div class="tab-content active" id="tab-play">
+    <div class="preview-row">
+      <div class="preview-item"><svg width="44" height="52" viewBox="0 0 60 70"><ellipse cx="30" cy="66" rx="14" ry="3" fill="rgba(0,0,0,0.3)"/><rect x="15" y="38" width="30" height="26" rx="7" fill="#1e3a8a"/><rect x="17" y="40" width="26" height="22" rx="6" fill="#3b82f6"/><circle cx="30" cy="26" r="13" fill="#fbbf24"/><path d="M15 26 Q15 8 30 8 Q45 8 45 26 L45 22 Q45 12 30 12 Q15 12 15 22 Z" fill="#78350f"/><rect x="13" y="22" width="5" height="16" fill="#78350f"/><rect x="42" y="22" width="5" height="16" fill="#78350f"/><circle cx="25" cy="27" r="2" fill="#1e293b"/><circle cx="35" cy="27" r="2" fill="#1e293b"/></svg><div class="name">Аналитик</div><div class="role">ты</div></div>
+      <div class="preview-item"><svg width="44" height="52" viewBox="0 0 60 70"><rect x="16" y="40" width="28" height="24" rx="6" fill="#dc2626"/><text x="30" y="56" font-size="14" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">С</text><circle cx="30" cy="26" r="13" fill="#fed7aa"/><path d="M15 26 Q15 8 30 8 Q45 8 45 26 L45 22 Q45 12 30 12 Q15 12 15 22 Z" fill="#fbbf24"/><rect x="13" y="22" width="5" height="18" fill="#fbbf24"/><rect x="42" y="22" width="5" height="18" fill="#fbbf24"/><circle cx="25" cy="28" r="2" fill="#1e293b"/><circle cx="35" cy="28" r="2" fill="#1e293b"/></svg><div class="name">Саша</div><div class="role">PM</div></div>
+      <div class="preview-item"><svg width="44" height="52" viewBox="0 0 60 70"><rect x="16" y="40" width="28" height="24" rx="6" fill="#a855f7"/><text x="30" y="56" font-size="14" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">К</text><circle cx="30" cy="26" r="13" fill="#fed7aa"/><path d="M15 26 Q15 8 30 8 Q45 8 45 26 L45 22 Q45 12 30 12 Q15 12 15 22 Z" fill="#1e293b"/><rect x="13" y="22" width="5" height="18" fill="#1e293b"/><rect x="42" y="22" width="5" height="18" fill="#1e293b"/><circle cx="25" cy="28" r="2" fill="#1e293b"/><circle cx="35" cy="28" r="2" fill="#1e293b"/></svg><div class="name">Катя</div><div class="role">PM</div></div>
+      <div class="preview-item"><svg width="44" height="52" viewBox="0 0 60 70"><rect x="16" y="40" width="28" height="24" rx="6" fill="#64748b"/><text x="30" y="56" font-size="14" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">А</text><circle cx="30" cy="26" r="13" fill="#fed7aa"/><ellipse cx="28" cy="17" rx="5" ry="3" fill="rgba(255,255,255,0.45)"/><path d="M16 30 Q30 48 44 30 Q40 42 30 42 Q20 42 16 30 Z" fill="#4a3520"/><circle cx="25" cy="28" r="2" fill="#1e293b"/><circle cx="35" cy="28" r="2" fill="#1e293b"/></svg><div class="name">Алексей</div><div class="role">Тех. директор</div></div>
+      <div class="preview-item"><svg width="44" height="52" viewBox="0 0 60 70"><rect x="16" y="40" width="28" height="24" rx="6" fill="#22c55e"/><text x="30" y="56" font-size="14" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">И</text><circle cx="30" cy="26" r="13" fill="#fed7aa"/><path d="M15 26 Q15 8 30 8 Q45 8 45 26 L45 22 Q45 12 30 12 Q15 12 15 22 Z" fill="#b45309"/><circle cx="25" cy="27" r="2" fill="#1e293b"/><circle cx="35" cy="27" r="2" fill="#1e293b"/></svg><div class="name">Илья</div><div class="role">Разработчик</div></div>
+    </div>
+
+    <div class="rules">
+      <div class="rules-title">Правила игры</div>
+      <ul>
+        <li class="ctrl"><span class="ico">🎮</span><span><b>WASD</b> — движение, мышь — поворот. Стрелки тоже работают.</span></li>
+        <li class="ctrl"><span class="ico">⌨</span><span><b>Shift</b> — бег, <b>Tab</b> — карта, <b>F</b> — пнуть дверь, <b>E</b> — подобрать / открыть.</span></li>
+        <li class="leaf"><span class="ico">📄</span><span>Собирай <b>листочки ТЗ</b> — каждый даёт <b>+1</b> к готовому ТЗ.</span></li>
+        <li class="bpmn"><span class="ico">📊</span><span>Подбирай <b>BPMN-диаграммы</b> — они дают <b>+5 ТЗ</b> сразу.</span></li>
+        <li class="danger"><span class="ico">⚠️</span><span><b>Саша</b> (PM) и <b>Катя</b> (PM) — главные враги. Если поймают — задачу отменят.</span></li>
+        <li class="alex"><span class="ico">⚙️</span><span><b>Алексей</b> (Тех. директор) замораживает аналитика на <b>3 секунды</b> болтовнёй.</span></li>
+        <li class="ilya"><span class="ico">💬</span><span><b>Илья</b> (Разработчик) даёт <b>защиту на 10 секунд</b> от врагов.</span></li>
+        <li><span class="ico">🔫</span><span><b>ЛКМ</b> — кинуть ТЗ во врага. <b>ПКМ</b> — взорвать дверь.</span></li>
+        <li><span class="ico">🔑</span><span>Найди <b>ключ</b> — откроет <b>закрытые комнаты</b>.</span></li>
+        <li><span class="ico">🎯</span><span>Каждые <b>30 ТЗ</b> — новый уровень: враги быстрее.</span></li>
+      </ul>
+    </div>
+
+    <div style="margin: 8px 0;">
+      <button class="btn diff" data-diff="easy">🟢 Стажёр</button>
+      <div class="diff-desc">Враги медленные</div>
+      <button class="btn diff" data-diff="normal">🟡 Аналитик</button>
+      <div class="diff-desc">Обычная скорость</div>
+      <button class="btn diff" data-diff="hard">🔴 Тимлид</button>
+      <div class="diff-desc">Быстрые враги</div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-achievements">
+    <p style="margin-bottom: 8px;">Получено: <b id="ach-count">0</b> / <b id="ach-total">0</b></p>
+    <div class="ach-grid" id="ach-grid"></div>
+    <button class="btn danger" id="reset-ach" style="margin-top: 14px;">🗑 Сбросить достижения</button>
+  </div>
+
+  <div class="tab-content" id="tab-stats">
+    <div class="stat-grid" id="stats-grid"></div>
+    <button class="btn danger" id="reset-stats" style="margin-top: 14px;">🗑 Сбросить статистику</button>
+  </div>
+
+  <div class="tab-content" id="tab-shop">
+    <p style="margin-bottom: 4px;">Твои ТЗ: <b id="shop-leaves" style="color:#fbbf24;">0</b></p>
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="pause-screen">
+  <h1>Пауза</h1>
+  <p>Пробел — продолжить</p>
+  <div style="margin: 18px 0; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <div class="settings-row"><span>🖱 Чувствительность</span><input type="range" id="set-sens" min="1" max="10" value="5"></div>
+    <div class="settings-row"><span>👁 FOV</span><select id="set-fov"><option value="60">60°</option><option value="90" selected>90°</option><option value="110">110°</option></select></div>
+    <div class="settings-row"><span>🎨 Качество</span><select id="set-rays"><option value="160">Низкое (160)</option><option value="240" selected>Среднее (240)</option><option value="320">Высокое (320)</option></select></div>
+    <div class="settings-row"><span>🔊 Звук</span><button class="toggle-btn on" id="toggle-sound">ВКЛ</button></div>
+    <div class="settings-row"><span>🎵 Музыка</span><button class="toggle-btn on" id="toggle-music">ВКЛ</button></div>
+  </div>
+  <button class="btn" id="pause-resume">Продолжить</button>
+</div>
+
+<div class="overlay hidden" id="gameover">
+  <h2 id="go-title">Тебя поймали!</h2>
+  <div id="dialog">
+    <div class="speaker" id="dialog-speaker">Саша</div>
+    <div id="dialog-text">...</div>
+  </div>
+  <div id="game-stats"></div>
+  <button class="btn" id="restart">Ещё раз</button>
+  <button class="btn" id="to-menu">В меню</button>
+</div>
+
+<div class="overlay hidden" id="win-screen">
+  <div class="emoji">🎉</div>
+  <h1>Вы нашли новую работу!</h1>
+  <p style="font-size: 20px; color: #fff; font-weight: 700; text-shadow: 2px 2px 0 #b45309;">Теперь всё будет хорошо. Оффер от HH.ru — это судьба.</p>
+  <button class="btn big" id="go-new-job" style="margin-top: 20px;">Выйти на новую работу →</button>
+</div>
+
+<div class="overlay hidden" id="fulltz-screen">
+  <div class="emoji">📋</div>
+  <h1 style="color: #f8fafc;">Поздравляем!</h1>
+  <p style="font-size: 20px; color: #cbd5e1;">Вы написали полноценное ТЗ. Сто штук за смену. Пора домой.</p>
+  <button class="btn big" id="go-home" style="margin-top: 20px;">Закончить смену, пойти домой</button>
+</div>
+
+<script>
+const MAP_W = 24, MAP_H = 24;
+const MAX_DEPTH = 20;
+const MOVE_SPEED = 0.07;
+const ROT_SPEED = 0.04;
+
+let FOV = Math.PI / 3;
+let RAYS = 240;
+let MOUSE_SENS = 0.001;
+
+const T_FLOOR = 0, T_WALL = 1, T_DESK = 2, T_COOLER = 3, T_PRINTER = 4, T_DOOR = 5, T_DOOR_OPEN = 6, T_WINDOW = 7, T_BOARD = 8, T_LOCKED = 9;
+
+const DIFFS = {
+  easy:   { enemySpeed: 0.025, enemyLife: 20000 },
+  normal: { enemySpeed: 0.038, enemyLife: 25000 },
+  hard:   { enemySpeed: 0.055, enemyLife: 35000 },
+};
+
+const DIALOGS = {
+  sasha: ['Саша: «А можно до пятницы?»', 'Саша: «А если убрать кнопку?»', 'Саша: «Как в ТикТоке!»', 'Саша: «Сколько стоит?»', 'Саша: «Я пообещала клиенту!»'],
+  katya: ['Катя: «Где ТЗ? Созвон через 5 минут!»', 'Катя: «47 правок!»', 'Катя: «Дедлайн был вчера!»', 'Катя: «Позову стейкхолдеров.»', 'Катя: «Созвон в 8 утра!»'],
+};
+
+// Карта: стартовая комната x=1..4, y=1..3, дверь на (5,2)
+const MAP = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,5,0,2,2,0,0,0,0,2,2,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,1,0,2,2,0,0,0,0,2,2,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,3,0,0,0,0,0,2,2,0,0,0,2,2,0,0,0,0,4,0,0,0,1],
+  [1,0,0,0,0,0,0,0,2,2,0,0,0,2,2,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,1],
+  [1,0,0,2,2,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,2,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,3,0,0,0,0,1],
+  [1,0,2,2,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+for (let y = 0; y < MAP.length; y++) {
+  if (!MAP[y]) MAP[y] = [];
+  while (MAP[y].length < MAP_W) MAP[y].push(T_WALL);
+  if (MAP[y].length > MAP_W) MAP[y] = MAP[y].slice(0, MAP_W);
+}
+while (MAP.length < MAP_H) {
+  const row = [];
+  for (let x = 0; x < MAP_W; x++) row.push(T_WALL);
+  MAP.push(row);
+}
+
+// Двери — теперь ТОЛЬКО здесь хранится состояние
+const DOORS = {};
+for (let y = 0; y < MAP_H; y++) {
+  for (let x = 0; x < MAP_W; x++) {
+    if (MAP[y][x] === T_DOOR || MAP[y][x] === T_LOCKED) {
+      DOORS[x + ',' + y] = { x, y, open: false, anim: 0, locked: MAP[y][x] === T_LOCKED, broken: false };
+    }
+  }
+}
+
+const TEX_SIZE = 64;
+const TEX_PIXELS = {};
+
+function makeTexture(type) {
+  const c = document.createElement('canvas');
+  c.width = TEX_SIZE; c.height = TEX_SIZE;
+  const g = c.getContext('2d');
+  if (type === T_WALL) {
+    g.fillStyle = '#64748b'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#526179';
+    for (let i = 0; i < 64; i += 8) g.fillRect(i, 0, 4, 64);
+    g.fillStyle = '#3b4a5e';
+    for (let y = 0; y < 64; y += 32) g.fillRect(0, y, 64, 2);
+  } else if (type === T_DESK) {
+    g.fillStyle = '#a16207'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#854d0e';
+    for (let y = 0; y < 64; y += 6) {
+      g.globalAlpha = 0.3 + Math.random() * 0.4;
+      g.fillRect(0, y + Math.random() * 3, 64, 1);
+    }
+    g.globalAlpha = 1;
+    g.fillStyle = '#713f12';
+    g.fillRect(0, 0, 64, 4); g.fillRect(0, 60, 64, 4);
+  } else if (type === T_COOLER) {
+    g.fillStyle = '#e2e8f0'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#7dd3fc'; g.fillRect(4, 4, 56, 20);
+    g.fillStyle = '#0ea5e9'; g.fillRect(28, 40, 8, 8);
+  } else if (type === T_PRINTER) {
+    g.fillStyle = '#64748b'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#475569'; g.fillRect(0, 0, 64, 8);
+    g.fillStyle = '#94a3b8'; g.fillRect(8, 20, 48, 24);
+    g.fillStyle = '#ef4444'; g.fillRect(50, 50, 6, 6);
+  } else if (type === T_DOOR || type === T_LOCKED) {
+    g.fillStyle = '#78350f'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#92400e'; g.fillRect(4, 4, 56, 56);
+    g.fillStyle = '#b45309'; g.fillRect(8, 8, 48, 48);
+    g.fillStyle = '#fbbf24'; g.beginPath(); g.arc(50, 32, 4, 0, Math.PI*2); g.fill();
+    g.strokeStyle = '#451a03'; g.lineWidth = 2;
+    g.strokeRect(12, 12, 40, 16);
+    g.strokeRect(12, 34, 40, 18);
+    if (type === T_LOCKED) {
+      g.fillStyle = '#ef4444'; g.fillRect(26, 26, 12, 12);
+      g.strokeStyle = '#ef4444'; g.lineWidth = 3;
+      g.beginPath(); g.arc(32, 26, 6, Math.PI, 0); g.stroke();
+    }
+  } else if (type === T_WINDOW) {
+    g.fillStyle = '#0c1e5e'; g.fillRect(0, 0, 64, 64);
+    const grad = g.createLinearGradient(0, 0, 0, 48);
+    grad.addColorStop(0, '#0c1e5e');
+    grad.addColorStop(1, '#4a3b8a');
+    g.fillStyle = grad; g.fillRect(4, 4, 56, 40);
+    g.fillStyle = '#fff';
+    for (let i = 0; i < 20; i++) g.fillRect(4 + Math.random() * 56, 4 + Math.random() * 30, 1, 1);
+    g.fillStyle = '#1e1b4b';
+    for (let i = 0; i < 10; i++) {
+      const h = 8 + Math.random() * 15;
+      g.fillRect(4 + i * 6, 44 - h, 5, h);
+    }
+    g.fillStyle = '#fbbf24';
+    for (let i = 0; i < 15; i++) g.fillRect(5 + Math.random() * 54, 30 + Math.random() * 12, 2, 2);
+    g.strokeStyle = '#334155'; g.lineWidth = 4;
+    g.strokeRect(2, 2, 60, 60);
+    g.beginPath();
+    g.moveTo(32, 2); g.lineTo(32, 62);
+    g.moveTo(2, 32); g.lineTo(62, 32);
+    g.stroke();
+  } else if (type === T_BOARD) {
+    g.fillStyle = '#1e3a24'; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = '#cbd5e1'; g.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      g.beginPath();
+      g.moveTo(4, 8 + i * 10); g.lineTo(60, 8 + i * 10 + Math.random() * 4 - 2);
+      g.stroke();
+    }
+  } else {
+    g.fillStyle = '#64748b'; g.fillRect(0, 0, 64, 64);
+  }
+  return g.getImageData(0, 0, TEX_SIZE, TEX_SIZE).data;
+}
+
+TEX_PIXELS[T_WALL] = makeTexture(T_WALL);
+TEX_PIXELS[T_DESK] = makeTexture(T_DESK);
+TEX_PIXELS[T_COOLER] = makeTexture(T_COOLER);
+TEX_PIXELS[T_PRINTER] = makeTexture(T_PRINTER);
+TEX_PIXELS[T_DOOR] = makeTexture(T_DOOR);
+TEX_PIXELS[T_LOCKED] = makeTexture(T_LOCKED);
+TEX_PIXELS[T_WINDOW] = makeTexture(T_WINDOW);
+TEX_PIXELS[T_BOARD] = makeTexture(T_BOARD);
+TEX_PIXELS[T_DOOR_OPEN] = TEX_PIXELS[T_DOOR];
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const mmCanvas = document.getElementById('minimap');
+const mmCtx = mmCanvas.getContext('2d');
+
+let W = window.innerWidth, H = window.innerHeight;
+canvas.width = W; canvas.height = H;
+window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
+
+function loadSave() { try { return JSON.parse(localStorage.getItem('analcore_save') || '{}'); } catch (e) { return {}; } }
+function saveSave(s) { localStorage.setItem('analcore_save', JSON.stringify(s)); }
+let save = loadSave();
+save.best = save.best || 0;
+save.totalLeaves = save.totalLeaves || 0;
+save.totalGames = save.totalGames || 0;
+save.achievements = save.achievements || {};
+save.skins = save.skins || { default: true };
+save.currentSkin = save.currentSkin || 'default';
+save.settings = save.settings || { sound: true, music: true, sens: 5, fov: 90, rays: 240 };
+
+let audioCtx = null;
+let soundEnabled = save.settings.sound;
+let musicEnabled = save.settings.music;
+function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); startMusic(); } catch (e) {} } }
+function playTone(freq, dur, type, vol) {
+  if (!soundEnabled || !audioCtx) return;
+  type = type || 'sine'; vol = vol || 0.15;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + dur);
+}
+function playNoise(dur, vol) {
+  if (!soundEnabled || !audioCtx) return;
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'highpass'; filter.frequency.value = 1000;
+  src.buffer = buf;
+  gain.gain.setValueAtTime(vol || 0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  src.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  src.start(); src.stop(audioCtx.currentTime + dur);
+}
+let musicInterval = null;
+function startMusic() {
+  if (!musicEnabled || !audioCtx || musicInterval) return;
+  const notes = [262, 330, 392, 440, 392, 330, 294, 262];
+  let i = 0;
+  musicInterval = setInterval(() => {
+    if (!musicEnabled || !audioCtx || !soundEnabled) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(notes[i % notes.length] / 2, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+    i++;
+  }, 500);
+}
+function stopMusic() { if (musicInterval) { clearInterval(musicInterval); musicInterval = null; } }
+
+const sfx = {
+  leaf: () => playTone(880, 0.1, 'sine', 0.15),
+  bpmn: () => { playTone(660, 0.1, 'sine', 0.15); setTimeout(() => playTone(880, 0.15, 'sine', 0.15), 80); },
+  ilya: () => { playTone(523, 0.1, 'triangle', 0.15); setTimeout(() => playTone(784, 0.2, 'triangle', 0.15), 100); },
+  freeze: () => { playTone(1200, 0.3, 'sine', 0.1); playTone(800, 0.4, 'sine', 0.1); },
+  gameover: () => { playTone(440, 0.2, 'sawtooth', 0.15); setTimeout(() => playTone(220, 0.4, 'sawtooth', 0.15), 200); },
+  offer: () => [523,659,784,1047].forEach((f,i) => setTimeout(() => playTone(f, 0.3, 'triangle', 0.2), i*120)),
+  step_floor: () => playTone(200 + Math.random() * 100, 0.05, 'square', 0.03),
+  door_open: () => { playNoise(0.2, 0.05); playTone(300, 0.15, 'sine', 0.05); },
+  door_close: () => playTone(200, 0.1, 'square', 0.08),
+  shoot: () => { playNoise(0.15, 0.1); playTone(600, 0.1, 'sine', 0.08); },
+  hit: () => { playTone(400, 0.1, 'sawtooth', 0.15); playNoise(0.1, 0.08); },
+  boom: () => { playNoise(0.4, 0.3); playTone(80, 0.3, 'sawtooth', 0.2); },
+  kick: () => playNoise(0.15, 0.15),
+  pickup: () => playTone(1000, 0.1, 'sine', 0.15),
+};
+
+let state = {
+  phase: 'menu', diff: 'normal',
+  player: { x: 2.5, y: 2.5, angle: 0, vx: 0, vy: 0 },
+  score: 0, frozen: 0, aura: 0,
+  gameStart: 0, gameTime: 0,
+  items: [], enemies: [], projectiles: [], particles: [],
+  enemyCooldown: 5000, enemyTimer: 0,
+  ilyaCooldown: 10000, ilyaTimer: 0,
+  offerCooldown: 30000, offerTimer: 0,
+  lastFrame: 0, stepTimer: 0, keys: {},
+  mouseLocked: false, shootCooldown: 0,
+  shakeTime: 0, hasKey: false, mapOpen: false,
+  running: false, weaponAnim: 0,
+  fps: 0, fpsCounter: 0, fpsTime: 0,
+  stuckTimer: 0,
+};
+
+// cellAt возвращает ТИП из MAP (не учитывает состояние двери!)
+function cellAt(x, y) {
+  const mx = Math.floor(x), my = Math.floor(y);
+  if (mx < 0 || my < 0 || mx >= MAP_W || my >= MAP_H) return T_WALL;
+  const row = MAP[my];
+  if (!row) return T_WALL;
+  const v = row[mx];
+  return (v === undefined) ? T_WALL : v;
+}
+
+// ГЛАВНОЕ ИСПРАВЛЕНИЕ: isWall смотрит в DOORS для дверей
+function isWall(x, y) {
+  const t = cellAt(x, y);
+  if (t === T_FLOOR) return false;
+  if (t === T_DOOR || t === T_LOCKED) {
+    const mx = Math.floor(x), my = Math.floor(y);
+    const d = DOORS[mx + ',' + my];
+    if (!d) return true;
+    if (d.broken) return false; // взорвана — можно пройти
+    return !d.open; // открыта — можно пройти
+  }
+  return true;
+}
+
+// Функция для проверки, проходима ли клетка (для castRay и врагов)
+function isPassable(x, y) {
+  return !isWall(x, y);
+}
+
+function randomFreeCell() {
+  for (let i = 0; i < 500; i++) {
+    const x = 1 + Math.random() * (MAP_W - 2);
+    const y = 1 + Math.random() * (MAP_H - 2);
+    if (cellAt(x, y) === T_FLOOR) {
+      const dx = x - state.player.x, dy = y - state.player.y;
+      if (dx*dx + dy*dy > 6) return { x, y };
+    }
+  }
+  return null;
+}
+
+function showMsg(text, color) {
+  color = color || '#fbbf24';
+  const el = document.getElementById('msg');
+  el.textContent = text; el.style.color = color;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+// castRay — теперь пропускает ОТКРЫТЫЕ двери
+function castRay(angle) {
+  const sin = Math.sin(angle), cos = Math.cos(angle);
+  const px = state.player.x, py = state.player.y;
+  let dist = 0;
+  const step = 0.02;
+  let hitType = T_WALL, side = 0, hitX = 0, hitY = 0;
+  while (dist < MAX_DEPTH) {
+    dist += step;
+    const tx = px + cos * dist, ty = py + sin * dist;
+    const t = cellAt(tx, ty);
+    // Проверка: если это дверь и она открыта — пропускаем
+    if (t === T_DOOR || t === T_LOCKED) {
+      const d = DOORS[Math.floor(tx) + ',' + Math.floor(ty)];
+      if (d && (d.open || d.broken)) continue; // открытая/взорванная — пропускаем
+    }
+    if (t !== T_FLOOR) {
+      hitType = t;
+      const fx = tx - Math.floor(tx), fy = ty - Math.floor(ty);
+      side = Math.abs(fx - 0.5) > Math.abs(fy - 0.5) ? 0 : 1;
+      hitX = tx; hitY = ty;
+      break;
+    }
+  }
+  return { dist, type: hitType, side, hitX, hitY };
+}
+
+function render3D() {
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H / 2);
+  skyGrad.addColorStop(0, '#0f172a');
+  skyGrad.addColorStop(1, '#475569');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H / 2);
+  const floorGrad = ctx.createLinearGradient(0, H / 2, 0, H);
+  floorGrad.addColorStop(0, '#475569');
+  floorGrad.addColorStop(1, '#1e293b');
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, H / 2, W, H / 2);
+
+  const fovHalf = FOV / 2;
+  const angleStart = state.player.angle - fovHalf;
+  const colWidth = W / RAYS;
+
+  for (let i = 0; i < RAYS; i++) {
+    const angle = angleStart + (i / RAYS) * FOV;
+    const ray = castRay(angle);
+    const corrected = ray.dist * Math.cos(angle - state.player.angle);
+    if (corrected <= 0.01) continue;
+    const wallHeight = H / corrected;
+    const wallTop = H / 2 - wallHeight / 2;
+
+    // Дверь: рисуем с учётом анимации открытия
+    if (ray.type === T_DOOR || ray.type === T_LOCKED) {
+      const d = DOORS[Math.floor(ray.hitX) + ',' + Math.floor(ray.hitY)];
+      if (d && d.broken) {
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(i * colWidth, H / 2 - 4, colWidth + 0.5, 8);
+        continue;
+      }
+      if (d && d.open) {
+        // открытая — рисуем узкую полоску (как будто ушла в сторону)
+        const openW = colWidth * 0.2;
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(i * colWidth, wallTop, openW, wallHeight);
+        continue;
+      }
+    }
+    drawTexturedColumn(i, colWidth, wallTop, wallHeight, ray);
+  }
+}
+
+function drawTexturedColumn(i, colWidth, top, height, ray) {
+  const mx = Math.floor(ray.hitX), my = Math.floor(ray.hitY);
+  const fx = ray.hitX - mx, fy = ray.hitY - my;
+  const texX = Math.floor((ray.side === 0 ? fy : fx) * TEX_SIZE) & (TEX_SIZE - 1);
+  const pixels = TEX_PIXELS[ray.type] || TEX_PIXELS[T_WALL];
+  const shade = Math.max(0.35, 1 - ray.dist / MAX_DEPTH) * (ray.side === 0 ? 0.85 : 1.0);
+
+  const numSlices = Math.min(16, Math.max(4, Math.ceil(height / 8)));
+  const sliceH = height / numSlices;
+  for (let s = 0; s < numSlices; s++) {
+    const texY = Math.floor(s / numSlices * TEX_SIZE) & (TEX_SIZE - 1);
+    const idx = (texY * TEX_SIZE + texX) * 4;
+    const r = Math.floor(pixels[idx] * shade);
+    const g = Math.floor(pixels[idx + 1] * shade);
+    const b = Math.floor(pixels[idx + 2] * shade);
+    ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+    ctx.fillRect(i * colWidth, top + s * sliceH, colWidth + 1, sliceH + 1);
+  }
+}
+
+function projectSprite(sx, sy) {
+  const dx = sx - state.player.x, dy = sy - state.player.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist < 0.15) return null;
+  const angleToSprite = Math.atan2(dy, dx);
+  let relAngle = angleToSprite - state.player.angle;
+  while (relAngle > Math.PI) relAngle -= Math.PI * 2;
+  while (relAngle < -Math.PI) relAngle += Math.PI * 2;
+  if (Math.abs(relAngle) > FOV / 2 + 0.3) return null;
+  const corrected = dist * Math.cos(relAngle);
+  if (corrected <= 0.1) return null;
+  const screenX = W / 2 + Math.tan(relAngle) * (W / 2) / Math.tan(FOV / 2);
+  const size = (H * 0.7) / corrected;
+  if (dist > 3) {
+    const ray = castRay(angleToSprite);
+    if (ray.dist < dist - 0.3) return null;
+  }
+  return { screenX, size, dist: corrected };
+}
+
+function drawEnemySprite(en) {
+  const proj = projectSprite(en.x, en.y);
+  if (!proj) return;
+  const screenX = proj.screenX, size = proj.size;
+  const w = size * 0.5;
+  const h = size * 0.9;
+  const y = H / 2 - h * 0.55;
+  const x = screenX - w / 2;
+
+  const frame = Math.floor((en.walkPhase || 0) / 150) % 4;
+  const bob = frame % 2 === 0 ? 0 : -size * 0.02;
+  const legOffset = frame === 0 ? -1 : frame === 2 ? 1 : 0;
+
+  const color = en.type === 'sasha' ? '#dc2626' : en.type === 'katya' ? '#a855f7' : '#64748b';
+  const letter = en.type === 'sasha' ? 'С' : en.type === 'katya' ? 'К' : 'А';
+
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(x + w * 0.3 + legOffset * size * 0.03, y + h * 0.88, w * 0.15, h * 0.14);
+  ctx.fillRect(x + w * 0.55 - legOffset * size * 0.03, y + h * 0.88, w * 0.15, h * 0.14);
+
+  ctx.fillStyle = color;
+  ctx.fillRect(x + w * 0.2, y + h * 0.4 + bob, w * 0.6, h * 0.5);
+
+  ctx.fillStyle = '#fed7aa';
+  ctx.fillRect(x + w * 0.15, y + h * 0.5 + bob, w * 0.08, h * 0.2);
+  ctx.fillRect(x + w * 0.77, y + h * 0.5 + bob, w * 0.08, h * 0.2);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold ' + Math.floor(w * 0.25) + 'px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(letter, screenX, y + h * 0.65 + bob);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.fillStyle = '#fed7aa';
+  ctx.beginPath();
+  ctx.arc(screenX, y + h * 0.25 + bob, w * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (en.type === 'sasha') {
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(screenX, y + h * 0.18 + bob, w * 0.3, Math.PI, 0);
+    ctx.fill();
+  } else if (en.type === 'katya') {
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(screenX, y + h * 0.18 + bob, w * 0.32, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(x + w * 0.18, y + h * 0.18 + bob, w * 0.08, h * 0.3);
+    ctx.fillRect(x + w * 0.74, y + h * 0.18 + bob, w * 0.08, h * 0.3);
+  } else {
+    ctx.fillStyle = '#4a3520';
+    ctx.beginPath();
+    ctx.arc(screenX, y + h * 0.3 + bob, w * 0.22, 0, Math.PI);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#1e293b';
+  ctx.beginPath();
+  ctx.arc(screenX - w * 0.1, y + h * 0.25 + bob, w * 0.05, 0, Math.PI * 2);
+  ctx.arc(screenX + w * 0.1, y + h * 0.25 + bob, w * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+
+  const lifeRatio = Math.max(0, en.life / DIFFS[state.diff].enemyLife);
+  const barY = y + h * 0.05 + bob;
+  const barW = w * 0.8;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(screenX - barW/2, barY, barW, 4);
+  ctx.fillStyle = lifeRatio > 0.5 ? '#22c55e' : lifeRatio > 0.25 ? '#f59e0b' : '#ef4444';
+  ctx.fillRect(screenX - barW/2, barY, barW * lifeRatio, 4);
+}
+
+function drawItemSprite(item) {
+  const proj = projectSprite(item.x, item.y);
+  if (!proj) return;
+  const screenX = proj.screenX, size = proj.size;
+  const s = size * 0.4;
+  const x = screenX - s / 2;
+  const y = H / 2 - s * 0.7;
+  const bob = Math.sin(performance.now() / 300 + item.x) * 3;
+
+  if (item.type === 'leaf') {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x + s*0.1, y + s*0.1 + bob, s*0.8, s*0.9);
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(x + s*0.2, y + s*0.2 + bob, s*0.5, s*0.15);
+  } else if (item.type === 'bpmn') {
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x + s*0.1, y + s*0.1 + bob, s*0.8, s*0.8);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + s*0.1, y + s*0.1 + bob, s*0.8, s*0.8);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(x + s*0.2, y + s*0.3 + bob, s*0.3, s*0.15);
+    ctx.fillRect(x + s*0.5, y + s*0.3 + bob, s*0.3, s*0.15);
+  } else if (item.type === 'ilya') {
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(x + s*0.2, y + s*0.4 + bob, s*0.6, s*0.6);
+    ctx.fillStyle = '#fed7aa';
+    ctx.beginPath();
+    ctx.arc(screenX, y + s*0.3 + bob, s*0.25, 0, Math.PI*2);
+    ctx.fill();
+  } else if (item.type === 'offer') {
+    ctx.fillStyle = '#dc2626';
+    ctx.fillRect(x + s*0.1, y + s*0.1 + bob, s*0.8, s*0.8);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + s*0.1, y + s*0.1 + bob, s*0.8, s*0.8);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold ' + Math.floor(s*0.35) + 'px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('hh', screenX, y + s*0.5 + bob);
+    ctx.textAlign = 'left';
+  } else if (item.type === 'key') {
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.arc(screenX, y + s*0.3 + bob, s*0.15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillRect(screenX - s*0.05, y + s*0.4 + bob, s*0.1, s*0.4);
+    ctx.fillRect(screenX, y + s*0.6 + bob, s*0.15, s*0.08);
+    ctx.fillRect(screenX, y + s*0.72 + bob, s*0.15, s*0.08);
+  }
+}
+
+function drawProjectile(p) {
+  const proj = projectSprite(p.x, p.y);
+  if (!proj) return;
+  const screenX = proj.screenX, size = proj.size;
+  const s = size * 0.15;
+  const y = H / 2 - s * 0.3;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(screenX - s/2, y, s, s*0.8);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(screenX - s/2, y, s, s*0.2);
+}
+
+function drawParticles() {
+  state.particles.forEach(p => {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function drawPlayerWeapon() {
+  const anim = state.weaponAnim;
+  const baseX = W * 0.72;
+  const baseY = H - 50 + anim * 30;
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(baseX + 20, baseY + 20, 60, 40);
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(baseX, baseY + 20, 100, 30);
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(baseX + 80, baseY + 10, 40, 20);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(baseX + 90, baseY + 12, 20, 16);
+  ctx.fillStyle = '#22c55e';
+  ctx.fillRect(baseX + 90, baseY + 14, 20, 3);
+}
+
+function renderMinimap() {
+  const sz = state.mapOpen ? 400 : 180;
+  if (state.mapOpen) {
+    mmCanvas.classList.add('big');
+    mmCanvas.width = sz; mmCanvas.height = sz;
+  } else {
+    mmCanvas.classList.remove('big');
+    mmCanvas.width = 180; mmCanvas.height = 180;
+  }
+  const scale = sz / Math.max(MAP_W, MAP_H);
+  mmCtx.clearRect(0, 0, sz, sz);
+  mmCtx.fillStyle = 'rgba(15,23,42,0.85)';
+  mmCtx.fillRect(0, 0, sz, sz);
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const t = MAP[y][x];
+      if (t === T_FLOOR) continue;
+      let c = '#64748b';
+      if (t === T_DOOR) {
+        const d = DOORS[x+','+y];
+        c = d && d.open ? '#22c55e' : '#8b5a2b';
+      }
+      else if (t === T_LOCKED) c = '#ef4444';
+      else if (t === T_WINDOW) c = '#7dd3fc';
+      else if (t === T_DESK) c = '#a16207';
+      mmCtx.fillStyle = c;
+      mmCtx.fillRect(x * scale, y * scale, scale, scale);
+    }
+  }
+  state.items.forEach(it => {
+    mmCtx.fillStyle = it.type === 'leaf' ? '#22c55e' : it.type === 'bpmn' ? '#38bdf8' : it.type === 'offer' ? '#dc2626' : it.type === 'key' ? '#fbbf24' : '#a855f7';
+    mmCtx.fillRect(it.x * scale - 1.5, it.y * scale - 1.5, 3, 3);
+  });
+  state.enemies.forEach(en => {
+    mmCtx.fillStyle = en.type === 'sasha' ? '#dc2626' : en.type === 'katya' ? '#a855f7' : '#64748b';
+    mmCtx.beginPath();
+    mmCtx.arc(en.x * scale, en.y * scale, 2.5, 0, Math.PI*2);
+    mmCtx.fill();
+  });
+  mmCtx.fillStyle = '#fbbf24';
+  mmCtx.beginPath();
+  mmCtx.arc(state.player.x * scale, state.player.y * scale, 4, 0, Math.PI*2);
+  mmCtx.fill();
+  mmCtx.strokeStyle = '#fbbf24';
+  mmCtx.lineWidth = 2;
+  mmCtx.beginPath();
+  mmCtx.moveTo(state.player.x * scale, state.player.y * scale);
+  mmCtx.lineTo((state.player.x + Math.cos(state.player.angle) * 2) * scale, (state.player.y + Math.sin(state.player.angle) * 2) * scale);
+  mmCtx.stroke();
+}
+
+function render() {
+  ctx.save();
+  if (state.shakeTime > 0) {
+    const s = state.shakeTime / 300 * 10;
+    ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+  }
+
+  render3D();
+
+  const sprites = [];
+  state.enemies.forEach(e => sprites.push({ type: 'enemy', data: e, dist: Math.hypot(e.x - state.player.x, e.y - state.player.y) }));
+  state.items.forEach(i => sprites.push({ type: 'item', data: i, dist: Math.hypot(i.x - state.player.x, i.y - state.player.y) }));
+  state.projectiles.forEach(p => sprites.push({ type: 'proj', data: p, dist: Math.hypot(p.x - state.player.x, p.y - state.player.y) }));
+  sprites.sort((a, b) => b.dist - a.dist);
+  sprites.forEach(s => {
+    if (s.type === 'enemy') drawEnemySprite(s.data);
+    else if (s.type === 'item') drawItemSprite(s.data);
+    else drawProjectile(s.data);
+  });
+
+  drawParticles();
+
+  const p = (state.gameTime % 120000) / 120000;
+  let tint = 0;
+  if (p < 0.4) tint = 0;
+  else if (p < 0.5) tint = (p - 0.4) / 0.1;
+  else if (p < 0.9) tint = 1;
+  else tint = 1 - (p - 0.9) / 0.1;
+  if (tint > 0) {
+    ctx.fillStyle = 'rgba(10,15,30,' + (tint * 0.5) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.8);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  drawPlayerWeapon();
+
+  ctx.restore();
+
+  if (state.weaponAnim > 0) state.weaponAnim = Math.max(0, state.weaponAnim - 0.08);
+  if (state.shakeTime > 0) state.shakeTime -= 16;
+
+  renderMinimap();
+}
+
+function bfsPath(sx, sy, tx, ty) {
+  const start = { x: Math.floor(sx), y: Math.floor(sy) };
+  const target = { x: Math.floor(tx), y: Math.floor(ty) };
+  if (start.x === target.x && start.y === target.y) return null;
+  const q = [start];
+  const visited = {};
+  visited[start.x + ',' + start.y] = true;
+  const prev = {};
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  let found = false;
+  while (q.length > 0) {
+    const cur = q.shift();
+    if (cur.x === target.x && cur.y === target.y) { found = true; break; }
+    for (let d = 0; d < 4; d++) {
+      const nx = cur.x + dirs[d][0], ny = cur.y + dirs[d][1];
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const k = nx + ',' + ny;
+      if (visited[k]) continue;
+      // Пропускаем только непроходимые (для врагов двери — проходимы)
+      if (isWall(nx + 0.5, ny + 0.5)) continue;
+      visited[k] = true;
+      prev[k] = cur.x + ',' + cur.y;
+      q.push({ x: nx, y: ny });
+    }
+    if (Object.keys(visited).length > 3000) break;
+  }
+  if (!found) return null;
+  const path = [];
+  let k = target.x + ',' + target.y;
+  while (prev[k]) {
+    const parts = k.split(',');
+    path.unshift({ x: +parts[0], y: +parts[1] });
+    k = prev[k];
+  }
+  return path;
+}
+
+let rafId = null;
+
+function startGame(diff) {
+  initAudio();
+  state.diff = diff;
+  state.phase = 'playing';
+  state.player = { x: 2.5, y: 2.5, angle: 0, vx: 0, vy: 0 };
+  state.score = 0; state.frozen = 0; state.aura = 0;
+  state.items = []; state.enemies = []; state.projectiles = []; state.particles = [];
+  state.enemyCooldown = 5000; state.enemyTimer = 0;
+  state.ilyaCooldown = 8000; state.ilyaTimer = 0;
+  state.offerCooldown = 30000 + Math.random() * 30000; state.offerTimer = 0;
+  state.gameStart = performance.now(); state.gameTime = 0;
+  state.stepTimer = 0; state.keys = {}; state.shootCooldown = 0;
+  state.shakeTime = 0; state.hasKey = false; state.mapOpen = false;
+  state.weaponAnim = 0;
+  state.fps = 0; state.fpsCounter = 0; state.fpsTime = 0;
+  state.stuckTimer = 0;
+
+  // Сброс дверей
+  Object.keys(DOORS).forEach(k => { DOORS[k].open = false; DOORS[k].anim = 0; DOORS[k].broken = false; });
+
+  for (let i = 0; i < 8; i++) spawnLeaf();
+  for (let i = 0; i < 2; i++) spawnBPMN();
+  spawnIlya();
+  state.items.push({ x: 21.5, y: 21.5, type: 'key', life: 999999 });
+
+  document.getElementById('menu').classList.add('hidden');
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('fulltz-screen').classList.add('hidden');
+  document.getElementById('pause-screen').classList.add('hidden');
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('shoot-indicator').style.display = 'block';
+  document.getElementById('best').textContent = save.best;
+  document.getElementById('debug').style.display = 'block';
+
+  state.lastFrame = performance.now();
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+function spawnLeaf() { const p = randomFreeCell(); if (p) state.items.push({ x: p.x, y: p.y, type: 'leaf', life: 40000 }); }
+function spawnBPMN() { const p = randomFreeCell(); if (p) state.items.push({ x: p.x, y: p.y, type: 'bpmn', life: 40000 }); }
+function spawnIlya() { const p = randomFreeCell(); if (p) state.items.push({ x: p.x, y: p.y, type: 'ilya', life: 20000 }); }
+function spawnOffer() { const p = randomFreeCell(); if (p) state.items.push({ x: p.x, y: p.y, type: 'offer', life: 6000 }); }
+function spawnEnemy(type) {
+  type = type || (Math.random() < 0.5 ? 'sasha' : 'katya');
+  if (state.enemies.some(e => e.type === type)) return;
+  const p = randomFreeCell();
+  if (!p) return;
+  state.enemies.push({ x: p.x, y: p.y, type, life: DIFFS[state.diff].enemyLife, walkPhase: 0, path: null, pathTimer: 0, fleeing: false });
+}
+
+function loop(now) {
+  const dt = Math.min(now - state.lastFrame, 100);
+  state.lastFrame = now;
+
+  state.fpsCounter++;
+  if (now - state.fpsTime >= 1000) {
+    state.fps = state.fpsCounter;
+    state.fpsCounter = 0;
+    state.fpsTime = now;
+    const fpsEl = document.getElementById('fps');
+    if (fpsEl) fpsEl.textContent = 'FPS: ' + state.fps;
+  }
+
+  if (state.phase === 'playing') { update(dt, now); render(); }
+  else if (state.phase === 'paused') { render(); }
+  rafId = requestAnimationFrame(loop);
+}
+
+function update(dt, now) {
+  state.gameTime = now - state.gameStart;
+  if (state.frozen > 0) {
+    state.frozen -= dt;
+    document.getElementById('frozen-icon').classList.add('show');
+    if (state.frozen <= 0) document.getElementById('frozen-icon').classList.remove('show');
+    if (state.frozen > 0) return;
+  }
+
+  let moveX = 0, moveY = 0;
+  const cos = Math.cos(state.player.angle), sin = Math.sin(state.player.angle);
+  state.running = !!(state.keys['ShiftLeft'] || state.keys['ShiftRight']);
+  const speedMult = state.running ? 1.6 : 1.0;
+
+  let wantMove = false;
+  if (state.keys['KeyW'] || state.keys['ArrowUp']) { moveX += cos; moveY += sin; wantMove = true; }
+  if (state.keys['KeyS'] || state.keys['ArrowDown']) { moveX -= cos; moveY -= sin; wantMove = true; }
+  if (state.keys['KeyA']) { moveX += sin; moveY -= cos; wantMove = true; }
+  if (state.keys['KeyD']) { moveX -= sin; moveY += cos; wantMove = true; }
+  if (state.keys['ArrowLeft']) state.player.angle -= ROT_SPEED;
+  if (state.keys['ArrowRight']) state.player.angle += ROT_SPEED;
+
+  const len = Math.hypot(moveX, moveY);
+  let moved = false;
+  if (len > 0) {
+    moveX = moveX / len * MOVE_SPEED * speedMult * (dt / 16);
+    moveY = moveY / len * MOVE_SPEED * speedMult * (dt / 16);
+    state.player.vx = moveX; state.player.vy = moveY;
+    if (!isWall(state.player.x + moveX, state.player.y)) { state.player.x += moveX; moved = true; }
+    if (!isWall(state.player.x, state.player.y + moveY)) { state.player.y += moveY; moved = true; }
+    state.stepTimer += dt;
+    if (state.stepTimer > (state.running ? 200 : 300)) {
+      state.stepTimer = 0;
+      sfx.step_floor();
+    }
+  } else {
+    state.player.vx = 0; state.player.vy = 0;
+  }
+
+  // Двери — открываются если игрок или враг близко
+  Object.keys(DOORS).forEach(k => {
+    const d = DOORS[k];
+    if (d.broken || d.locked) return;
+    const ddx = d.x + 0.5 - state.player.x;
+    const ddy = d.y + 0.5 - state.player.y;
+    const distPlayer = Math.hypot(ddx, ddy);
+    const nearEnemy = state.enemies.some(en => Math.hypot(en.x - d.x - 0.5, en.y - d.y - 0.5) < 2.5);
+    const near = distPlayer < 2.5 || nearEnemy;
+    if (near && !d.open) {
+      d.open = true;
+      sfx.door_open();
+    }
+    else if (!near && d.open && distPlayer > 4) {
+      d.open = false;
+      sfx.door_close();
+    }
+  });
+
+  if (state.aura > 0) state.aura -= dt;
+  if (state.shootCooldown > 0) state.shootCooldown -= dt;
+
+  const enemySpeed = DIFFS[state.diff].enemySpeed * (dt / 16);
+  state.enemies.forEach(en => {
+    en.life -= dt;
+    en.walkPhase += dt;
+    if (en.life <= 0 && !en.fleeing) { en.dying = true; return; }
+    const dx = state.player.x - en.x;
+    const dy = state.player.y - en.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 0.5 && state.frozen <= 0 && !en.fleeing) {
+      if (state.aura > 0) { en.dying = true; showMsg('💫 Отбит аурой!', '#a855f7'); return; }
+      else if (en.type === 'alex') {
+        state.frozen = 3000; sfx.freeze();
+        showMsg('❄️ Заморожен на 3 секунды!', '#7dd3fc');
+        en.dying = true; return;
+      } else { gameOver(en.type); return; }
+    }
+
+    let targetX, targetY;
+    if (en.fleeing) {
+      if (dist > 0.1) { targetX = en.x - dx / dist * 5; targetY = en.y - dy / dist * 5; }
+      else { targetX = en.x; targetY = en.y; }
+      if (dist > 8) { en.dying = true; return; }
+    } else {
+      targetX = state.player.x; targetY = state.player.y;
+    }
+
+    en.pathTimer -= dt;
+    if (!en.path || en.pathTimer <= 0) {
+      en.pathTimer = 500;
+      const path = bfsPath(en.x, en.y, targetX, targetY);
+      en.path = path && path.length > 0 ? path : null;
+    }
+
+    if (en.path && en.path.length > 0) {
+      const next = en.path[0];
+      const nx = next.x + 0.5, ny = next.y + 0.5;
+      const ddx = nx - en.x, ddy = ny - en.y;
+      const dd = Math.hypot(ddx, ddy);
+      if (dd < 0.1) en.path.shift();
+      else {
+        const step = Math.min(enemySpeed, dd);
+        const mx = ddx / dd * step, my = ddy / dd * step;
+        if (!isWall(en.x + mx, en.y)) en.x += mx;
+        if (!isWall(en.x, en.y + my)) en.y += my;
+      }
+    } else if (dist > 0) {
+      const step = Math.min(enemySpeed, dist);
+      const mx = dx / dist * step, my = dy / dist * step;
+      if (!isWall(en.x + mx, en.y)) en.x += mx;
+      if (!isWall(en.x, en.y + my)) en.y += my;
+    }
+  });
+  state.enemies = state.enemies.filter(e => !e.dying && e.life > 0);
+
+  state.projectiles.forEach(p => {
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.1) { p.dead = true; return; }
+    const step = 0.15;
+    p.x += dx / dist * step;
+    p.y += dy / dist * step;
+    if (isWall(p.x, p.y)) { p.dead = true; return; }
+    state.enemies.forEach(en => {
+      const ed = Math.hypot(en.x - p.x, en.y - p.y);
+      if (ed < 0.5 && !en.fleeing) {
+        en.fleeing = true; en.life = 3000; en.path = null;
+        p.dead = true; sfx.hit();
+        for (let i = 0; i < 15; i++) {
+          const a = Math.random() * Math.PI * 2;
+          state.particles.push({ x: en.x, y: en.y, vx: Math.cos(a) * 0.05, vy: Math.sin(a) * 0.05, life: 600, maxLife: 600, color: '#dc2626', size: 3 + Math.random() * 4 });
+        }
+        showMsg('💥 Дедлайн вручён!', '#f87171');
+        state.score += 2;
+      }
+    });
+  });
+  state.projectiles = state.projectiles.filter(p => !p.dead);
+
+  state.particles = state.particles.filter(p => {
+    p.life -= dt;
+    p.x += p.vx * (dt / 16);
+    p.y += p.vy * (dt / 16);
+    return p.life > 0;
+  });
+
+  state.items.forEach(it => {
+    if (it.type !== 'key') it.life -= dt;
+    if (it.life <= 0) { it.dead = true; return; }
+    const d = Math.hypot(it.x - state.player.x, it.y - state.player.y);
+    if (d < 0.5) {
+      it.dead = true;
+      if (it.type === 'leaf') {
+        state.score += 1; showMsg('+1 ТЗ', '#22c55e'); sfx.leaf();
+        spawnLeaf();
+        if (state.score >= 100) { fullTzEnding(); return; }
+      } else if (it.type === 'bpmn') {
+        state.score += 5; showMsg('+5 ТЗ', '#38bdf8'); sfx.bpmn(); spawnBPMN();
+      } else if (it.type === 'ilya') {
+        state.aura = 10000; showMsg('🛡 Аура на 10 сек!', '#a855f7'); sfx.ilya();
+      } else if (it.type === 'offer') { winGame(); return; }
+      else if (it.type === 'key') {
+        state.hasKey = true;
+        document.getElementById('key-indicator').style.display = 'block';
+        showMsg('🔑 Ключ получен!', '#fbbf24');
+        sfx.pickup();
+      }
+    }
+  });
+  state.items = state.items.filter(it => !it.dead);
+
+  state.enemyTimer += dt;
+  if (state.enemyTimer >= state.enemyCooldown) {
+    state.enemyTimer = 0; state.enemyCooldown = 8000 + Math.random() * 5000;
+    if (state.enemies.filter(e => e.type !== 'alex').length < 2) spawnEnemy();
+    if (!state.enemies.some(e => e.type === 'alex') && Math.random() < 0.4) spawnEnemy('alex');
+  }
+  state.ilyaTimer += dt;
+  if (state.ilyaTimer >= state.ilyaCooldown) {
+    state.ilyaTimer = 0; state.ilyaCooldown = 15000 + Math.random() * 8000;
+    if (!state.items.some(i => i.type === 'ilya')) spawnIlya();
+  }
+  state.offerTimer += dt;
+  if (state.offerTimer >= state.offerCooldown) {
+    state.offerTimer = 0; state.offerCooldown = 45000 + Math.random() * 30000;
+    if (!state.items.some(i => i.type === 'offer')) spawnOffer();
+  }
+
+  // Отладка
+  const debugEl = document.getElementById('debug');
+  if (debugEl) {
+    const doorState = DOORS['5,2'];
+    debugEl.textContent =
+      'pos: ' + state.player.x.toFixed(2) + ', ' + state.player.y.toFixed(2) + '\n' +
+      'door(5,2): ' + (doorState ? (doorState.open ? 'ОТКРЫТА' : 'ЗАКРЫТА') : 'нет') + '\n' +
+      'dist to door: ' + (doorState ? Math.hypot(doorState.x + 0.5 - state.player.x, doorState.y + 0.5 - state.player.y).toFixed(2) : 'n/a') + '\n' +
+      'isWall(5.5, 2.5): ' + isWall(5.5, 2.5);
+  }
+
+  document.getElementById('score').textContent = state.score;
+  const secs = Math.floor(state.gameTime / 1000);
+  document.getElementById('timer').textContent = Math.floor(secs/60) + ':' + String(secs%60).padStart(2,'0');
+  const buff = document.getElementById('buff-indicator');
+  if (state.aura > 0) { buff.style.display = 'inline'; buff.textContent = '🛡 ' + (state.aura/1000).toFixed(1); }
+  else buff.style.display = 'none';
+}
+
+function shoot() {
+  if (state.phase !== 'playing' || state.frozen > 0) return;
+  if (state.shootCooldown > 0) return;
+  state.shootCooldown = 400;
+  state.weaponAnim = 1;
+  sfx.shoot();
+  const tx = state.player.x + Math.cos(state.player.angle) * 5;
+  const ty = state.player.y + Math.sin(state.player.angle) * 5;
+  state.projectiles.push({ x: state.player.x, y: state.player.y, tx, ty });
+}
+
+function blowDoor() {
+  if (state.phase !== 'playing') return;
+  let best = null, bestDist = 2;
+  Object.keys(DOORS).forEach(k => {
+    const d = DOORS[k];
+    if (d.broken) return;
+    const dist = Math.hypot(d.x + 0.5 - state.player.x, d.y + 0.5 - state.player.y);
+    if (dist < bestDist) { best = d; bestDist = dist; }
+  });
+  if (!best) { showMsg('Нет двери рядом', '#f87171'); return; }
+  best.broken = true;
+  best.open = true;
+  sfx.boom();
+  state.shakeTime = 300;
+  showMsg('💥 Дверь взорвана!', '#f87171');
+  state.enemies.forEach(en => {
+    const dist = Math.hypot(en.x - best.x - 0.5, en.y - best.y - 0.5);
+    if (dist < 3) { en.life = Math.min(en.life, 3000); en.fleeing = true; }
+  });
+}
+
+function kickDoor() {
+  if (state.phase !== 'playing') return;
+  let best = null, bestDist = 1.5;
+  Object.keys(DOORS).forEach(k => {
+    const d = DOORS[k];
+    if (d.broken || d.open) return;
+    const dist = Math.hypot(d.x + 0.5 - state.player.x, d.y + 0.5 - state.player.y);
+    if (dist < bestDist) { best = d; bestDist = dist; }
+  });
+  if (!best) { showMsg('Нет закрытой двери рядом', '#f87171'); return; }
+  if (best.locked && !state.hasKey) { showMsg('🔒 Заперто! Нужен ключ', '#ef4444'); return; }
+  best.open = true;
+  best.locked = false;
+  sfx.kick();
+  showMsg('👢 Дверь открыта', '#fbbf24');
+}
+
+function interact() {
+  if (state.phase !== 'playing') return;
+  let best = null, bestDist = 1.5;
+  state.items.forEach(it => {
+    const dist = Math.hypot(it.x - state.player.x, it.y - state.player.y);
+    if (dist < bestDist) { best = it; bestDist = dist; }
+  });
+  if (!best) { showMsg('Нечего подобрать', '#f87171'); return; }
+  const d = Math.hypot(best.x - state.player.x, best.y - state.player.y);
+  if (d < 0.6) {
+    best.dead = true;
+    if (best.type === 'leaf') { state.score += 1; showMsg('+1 ТЗ', '#22c55e'); sfx.leaf(); spawnLeaf(); }
+    else if (best.type === 'bpmn') { state.score += 5; showMsg('+5 ТЗ', '#38bdf8'); sfx.bpmn(); spawnBPMN(); }
+    else if (best.type === 'ilya') { state.aura = 10000; showMsg('🛡 Аура!', '#a855f7'); sfx.ilya(); }
+    else if (best.type === 'offer') { winGame(); }
+    else if (best.type === 'key') { state.hasKey = true; document.getElementById('key-indicator').style.display = 'block'; showMsg('🔑 Ключ!', '#fbbf24'); sfx.pickup(); }
+  }
+}
+
+function gameOver(cause) {
+  if (state.phase === 'gameover') return;
+  state.phase = 'gameover';
+  sfx.gameover();
+  state.shakeTime = 500;
+  const flash = document.getElementById('damage-flash');
+  flash.classList.add('show');
+  setTimeout(() => flash.classList.remove('show'), 400);
+  if (state.score > save.best) save.best = state.score;
+  save.totalLeaves += state.score; save.totalGames++;
+  saveSave(save);
+  document.getElementById('best').textContent = save.best;
+  const goTitle = document.getElementById('go-title');
+  const speaker = document.getElementById('dialog-speaker');
+  const text = document.getElementById('dialog-text');
+  if (cause === 'sasha' || cause === 'katya') {
+    goTitle.textContent = 'Задача отменена!';
+    speaker.textContent = cause === 'sasha' ? 'Саша · PM' : 'Катя · PM';
+    speaker.className = 'speaker ' + cause;
+    const list = DIALOGS[cause];
+    text.textContent = list[Math.floor(Math.random() * list.length)];
+  }
+  document.getElementById('game-stats').innerHTML =
+    '<div class="stat-card"><div class="stat-value">' + state.score + '</div><div class="stat-label">ТЗ</div></div>' +
+    '<div class="stat-card"><div class="stat-value">' + Math.floor(state.gameTime/1000) + 'с</div><div class="stat-label">Время</div></div>' +
+    '<div class="stat-card"><div class="stat-value">' + save.best + '</div><div class="stat-label">Рекорд</div></div>';
+  document.getElementById('gameover').classList.remove('hidden');
+  document.getElementById('debug').style.display = 'none';
+}
+
+function winGame() {
+  if (state.phase === 'win') return;
+  state.phase = 'win';
+  sfx.offer();
+  if (state.score > save.best) save.best = state.score;
+  save.totalLeaves += state.score; save.totalGames++;
+  save.achievements['dream_offer'] = true;
+  saveSave(save);
+  document.getElementById('win-screen').classList.remove('hidden');
+  document.getElementById('debug').style.display = 'none';
+}
+
+function fullTzEnding() {
+  if (state.phase === 'fulltz') return;
+  state.phase = 'fulltz';
+  if (state.score > save.best) save.best = state.score;
+  save.totalLeaves += state.score; save.totalGames++;
+  save.achievements['full_tz'] = true;
+  saveSave(save);
+  document.getElementById('fulltz-screen').classList.remove('hidden');
+  document.getElementById('debug').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => {
+  const code = e.code;
+  state.keys[code] = true;
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (state.phase === 'playing') {
+      state.phase = 'paused';
+      document.getElementById('pause-screen').classList.remove('hidden');
+    } else if (state.phase === 'paused') {
+      state.phase = 'playing';
+      document.getElementById('pause-screen').classList.add('hidden');
+    }
+  }
+  if (code === 'Tab') { e.preventDefault(); state.mapOpen = !state.mapOpen; renderMinimap(); }
+  if (code === 'KeyF') kickDoor();
+  if (code === 'KeyE') interact();
+});
+document.addEventListener('keyup', e => { state.keys[e.code] = false; });
+
+canvas.addEventListener('click', () => {
+  if (state.phase === 'playing') {
+    if (!state.mouseLocked) canvas.requestPointerLock();
+    else shoot();
+  }
+});
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (state.phase === 'playing') blowDoor();
+});
+document.addEventListener('pointerlockchange', () => {
+  state.mouseLocked = document.pointerLockElement === canvas;
+});
+document.addEventListener('mousemove', e => {
+  if (state.mouseLocked && state.phase === 'playing') {
+    state.player.angle += e.movementX * MOUSE_SENS;
+  }
+});
+
+document.querySelectorAll('.mc-btn').forEach(btn => {
+  const handler = (e) => {
+    e.preventDefault();
+    const move = btn.dataset.move;
+    const turn = btn.dataset.turn;
+    if (move === 'shoot') { shoot(); return; }
+    if (move === 'fwd') state.keys['KeyW'] = true;
+    if (move === 'back') state.keys['KeyS'] = true;
+    if (move === 'left') state.keys['KeyA'] = true;
+    if (move === 'right') state.keys['KeyD'] = true;
+    if (turn === 'left') state.player.angle -= 0.1;
+    if (turn === 'right') state.player.angle += 0.1;
+  };
+  btn.addEventListener('touchstart', handler, { passive: false });
+  btn.addEventListener('touchend', e => {
+    e.preventDefault();
+    state.keys['KeyW'] = false; state.keys['KeyS'] = false;
+    state.keys['KeyA'] = false; state.keys['KeyD'] = false;
+  }, { passive: false });
+  btn.addEventListener('mousedown', handler);
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.querySelectorAll('.btn.diff').forEach(btn => {
+  btn.addEventListener('click', (e) => { e.preventDefault(); startGame(btn.dataset.diff); });
+});
+document.getElementById('restart').addEventListener('click', () => {
+  document.getElementById('gameover').classList.add('hidden');
+  startGame(state.diff);
+});
+document.getElementById('to-menu').addEventListener('click', goMenu);
+document.getElementById('go-new-job').addEventListener('click', () => { document.getElementById('win-screen').classList.add('hidden'); goMenu(); });
+document.getElementById('go-home').addEventListener('click', () => { document.getElementById('fulltz-screen').classList.add('hidden'); goMenu(); });
+
+function goMenu() {
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('fulltz-screen').classList.add('hidden');
+  document.getElementById('pause-screen').classList.add('hidden');
+  document.getElementById('menu').classList.remove('hidden');
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('shoot-indicator').style.display = 'none';
+  document.getElementById('key-indicator').style.display = 'none';
+  document.getElementById('debug').style.display = 'none';
+  state.phase = 'menu';
+  updateMenuStats();
+}
+
+document.getElementById('toggle-sound').addEventListener('click', (e) => {
+  save.settings.sound = !save.settings.sound;
+  soundEnabled = save.settings.sound;
+  e.target.textContent = soundEnabled ? 'ВКЛ' : 'ВЫКЛ';
+  e.target.classList.toggle('on', soundEnabled);
+  saveSave(save);
+});
+document.getElementById('toggle-music').addEventListener('click', (e) => {
+  save.settings.music = !save.settings.music;
+  musicEnabled = save.settings.music;
+  e.target.textContent = musicEnabled ? 'ВКЛ' : 'ВЫКЛ';
+  e.target.classList.toggle('on', musicEnabled);
+  if (!musicEnabled) stopMusic();
+  else if (audioCtx) startMusic();
+  saveSave(save);
+});
+document.getElementById('set-sens').addEventListener('input', (e) => {
+  save.settings.sens = +e.target.value;
+  MOUSE_SENS = 0.0002 * (+e.target.value);
+  saveSave(save);
+});
+document.getElementById('set-fov').addEventListener('change', (e) => {
+  save.settings.fov = +e.target.value;
+  FOV = (+e.target.value) * Math.PI / 180;
+  saveSave(save);
+});
+document.getElementById('set-rays').addEventListener('change', (e) => {
+  save.settings.rays = +e.target.value;
+  RAYS = +e.target.value;
+  saveSave(save);
+});
+document.getElementById('pause-resume').addEventListener('click', () => {
+  state.phase = 'playing';
+  document.getElementById('pause-screen').classList.add('hidden');
+});
+
+MOUSE_SENS = 0.0002 * save.settings.sens;
+FOV = save.settings.fov * Math.PI / 180;
+RAYS = save.settings.rays;
+document.getElementById('set-sens').value = save.settings.sens;
+document.getElementById('set-fov').value = save.settings.fov;
+document.getElementById('set-rays').value = save.settings.rays;
+document.getElementById('toggle-sound').textContent = soundEnabled ? 'ВКЛ' : 'ВЫКЛ';
+document.getElementById('toggle-sound').classList.toggle('on', soundEnabled);
+document.getElementById('toggle-music').textContent = musicEnabled ? 'ВКЛ' : 'ВЫКЛ';
+document.getElementById('toggle-music').classList.toggle('on', musicEnabled);
+
+const ACHIEVEMENTS = [
+  { id: 'first_leaf', name: 'Первый шаг', desc: 'Собери 1 листочек ТЗ', secret: false, icon: '<svg viewBox="0 0 44 44"><rect x="10" y="8" width="24" height="28" rx="2" fill="#fff" stroke="#cbd5e1"/><rect x="14" y="14" width="14" height="2" fill="#22c55e"/></svg>' },
+  { id: 'ten_leaves', name: 'Трудяга', desc: 'Собери 10 ТЗ за игру', secret: false, icon: '<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">📄</text></svg>' },
+  { id: 'dream_offer', name: 'Оффер мечты', desc: 'Вы получили офер и ушли на новую работу, теперь всё у вас будет хорошо', secret: true, icon: '<svg viewBox="0 0 44 44"><rect x="6" y="10" width="32" height="26" rx="3" fill="#dc2626"/><text x="22" y="22" font-size="10" font-weight="900" fill="#fff" text-anchor="middle" font-family="Arial">hh</text></svg>' },
+  { id: 'full_tz', name: 'Полноценное ТЗ', desc: 'Ты написал полноценное ТЗ — сто штук за смену. Пора домой.', secret: true, icon: '<svg viewBox="0 0 44 44"><text x="22" y="30" font-size="24" text-anchor="middle">📋</text></svg>' },
+];
+
+const SKINS = [
+  { id: 'default', name: 'Аналитик', price: 0, bonus: 'Стандартный' },
+  { id: 'sergey', name: 'Серёжа', price: 50, bonus: '🚬 Вейп' },
+  { id: 'danil', name: 'Данил', price: 150, bonus: '🚲 Велосипед' },
+  { id: 'demid', name: 'Демид', price: 100, bonus: '🍪 Печенька' },
+];
+
+function updateMenuStats() {
+  document.getElementById('best').textContent = save.best;
+  document.getElementById('total-leaves').textContent = save.totalLeaves;
+  document.getElementById('shop-leaves').textContent = save.totalLeaves;
+  renderAchievements();
+  renderStats();
+  renderShop();
+}
+
+function renderAchievements() {
+  const grid = document.getElementById('ach-grid');
+  grid.innerHTML = '';
+  let unlocked = 0;
+  ACHIEVEMENTS.forEach(a => {
+    const isUnlocked = !!save.achievements[a.id];
+    if (isUnlocked) unlocked++;
+    const card = document.createElement('div');
+    card.className = 'ach-card ' + (a.secret ? (isUnlocked ? 'secret-unlocked' : 'secret-locked') : (isUnlocked ? 'unlocked' : 'locked'));
+    const showName = a.secret && !isUnlocked ? '???' : a.name;
+    const showDesc = a.secret && !isUnlocked ? 'Секретное достижение' : a.desc;
+    const iconClass = a.secret && !isUnlocked ? 'ach-icon blurred' : 'ach-icon';
+    card.innerHTML = '<div class="' + iconClass + '">' + a.icon + '</div><div class="ach-info"><div class="ach-name">' + showName + '</div><div class="ach-desc">' + showDesc + '</div></div>';
+    grid.appendChild(card);
+  });
+  document.getElementById('ach-count').textContent = unlocked;
+  document.getElementById('ach-total').textContent = ACHIEVEMENTS.length;
+}
+
+function renderStats() {
+  const grid = document.getElementById('stats-grid');
+  grid.innerHTML =
+    '<div class="stat-card"><div class="stat-value">' + save.best + '</div><div class="stat-label">Рекорд</div></div>' +
+    '<div class="stat-card"><div class="stat-value">' + save.totalLeaves + '</div><div class="stat-label">Всего ТЗ</div></div>' +
+    '<div class="stat-card"><div class="stat-value">' + save.totalGames + '</div><div class="stat-label">Игр</div></div>';
+}
+
+function renderShop() {
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+  SKINS.forEach(skin => {
+    const owned = !!save.skins[skin.id];
+    const equipped = save.currentSkin === skin.id;
+    const card = document.createElement('div');
+    card.className = 'shop-card ' + (equipped ? 'equipped' : (owned ? 'owned' : ''));
+    let btnText = equipped ? '✓ Надет' : (owned ? 'Надеть' : skin.price + ' 📄');
+    card.innerHTML =
+      '<div class="shop-name">' + skin.name + '</div>' +
+      '<div class="shop-bonus">' + skin.bonus + '</div>' +
+      '<button class="btn small ' + (equipped ? 'equipped' : (owned ? '' : 'buy')) + '" data-skin="' + skin.id + '" ' + (equipped ? 'disabled' : '') + '>' + btnText + '</button>';
+    grid.appendChild(card);
+  });
+  grid.querySelectorAll('button[data-skin]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const skinId = btn.dataset.skin;
+      const skin = SKINS.find(s => s.id === skinId);
+      if (save.skins[skinId]) { save.currentSkin = skinId; saveSave(save); renderShop(); }
+      else if (save.totalLeaves >= skin.price) {
+        save.totalLeaves -= skin.price;
+        save.skins[skinId] = true;
+        save.currentSkin = skinId;
+        saveSave(save);
+        updateMenuStats();
+      }
+    });
+  });
+}
+
+document.getElementById('reset-ach').addEventListener('click', () => {
+  if (confirm('Сбросить достижения?')) { save.achievements = {}; saveSave(save); renderAchievements(); }
+});
+document.getElementById('reset-stats').addEventListener('click', () => {
+  if (confirm('Сбросить статистику?')) { save.best = 0; save.totalLeaves = 0; save.totalGames = 0; saveSave(save); updateMenuStats(); }
+});
+
+mmCanvas.width = 180;
+mmCanvas.height = 180;
+updateMenuStats();
+render3D();
+console.log('Analcore 3D ready');
+</script>
+</body>
+</html>
