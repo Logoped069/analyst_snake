@@ -133,7 +133,7 @@
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
+<canvas id="game" width="1920" height="1080"></canvas>
 <div id="crosshair"></div>
 <canvas id="minimap" width="180" height="180"></canvas>
 <div id="hud" style="display:none;">
@@ -272,9 +272,6 @@
 </div>
 
 <script>
-// ============================================================
-//  ИНИЦИАЛИЗАЦИЯ
-// ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   try {
     initGame();
@@ -386,9 +383,6 @@ function initGame() {
     return mx >= SECRET_X1 && mx <= SECRET_X2 && my >= SECRET_Y1 && my <= SECRET_Y2;
   }
 
-  // ============================================================
-  //  ТЕКСТУРЫ
-  // ============================================================
   const TEX_SIZE = 64;
   const TEX_PIXELS = {};
 
@@ -447,7 +441,6 @@ function initGame() {
     try {
       return g.getImageData(0, 0, TEX_SIZE, TEX_SIZE).data;
     } catch (e) {
-      // Fallback: генерируем простые пиксели
       const arr = new Uint8ClampedArray(TEX_SIZE * TEX_SIZE * 4);
       for (let i = 0; i < arr.length; i += 4) {
         arr[i] = 100; arr[i+1] = 116; arr[i+2] = 139; arr[i+3] = 255;
@@ -465,24 +458,23 @@ function initGame() {
   TEX_PIXELS[T_WINDOW] = makeTexturePixels(T_WINDOW);
   TEX_PIXELS[T_BOARD] = makeTexturePixels(T_BOARD);
 
-  // ============================================================
-  //  КАНВАС — БЕЗ willReadFrequently (главный canvas только пишет!)
-  // ============================================================
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d'); // дефолтные настройки — GPU-ускорение
+  const ctx = canvas.getContext('2d');
   const mmCanvas = document.getElementById('minimap');
   const mmCtx = mmCanvas.getContext('2d');
 
-  let W = window.innerWidth, H = window.innerHeight;
-  canvas.width = W; canvas.height = H;
-  window.addEventListener('resize', () => {
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W; canvas.height = H;
-  });
+  // ВАЖНО: Внутреннее разрешение canvas фиксировано в HTML (1920x1080)
+  // CSS растягивает его на весь экран. DevTools и ресайз окна не влияют.
+  let W = canvas.width;
+  let H = canvas.height;
+  
+  function updateCanvasCSS() {
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+  }
+  updateCanvasCSS();
+  window.addEventListener('resize', updateCanvasCSS);
 
-  // ============================================================
-  //  СОХРАНЕНИЕ
-  // ============================================================
   function loadSave() { try { return JSON.parse(localStorage.getItem('analcore_save') || '{}'); } catch (e) { return {}; } }
   function saveSave(s) { localStorage.setItem('analcore_save', JSON.stringify(s)); }
   let save = loadSave();
@@ -494,9 +486,6 @@ function initGame() {
   save.currentSkin = save.currentSkin || 'default';
   save.settings = save.settings || { sound: true, music: true, sens: 5, fov: 90, rays: 240 };
 
-  // ============================================================
-  //  ЗВУК
-  // ============================================================
   let audioCtx = null;
   let soundEnabled = save.settings.sound;
   let musicEnabled = save.settings.music;
@@ -637,7 +626,13 @@ function initGame() {
   }
 
   function castRay(angle) {
+    if (!isFinite(angle)) {
+      return { dist: MAX_DEPTH, type: T_WALL, side: 0, hitX: 0, hitY: 0 };
+    }
     const sin = Math.sin(angle), cos = Math.cos(angle);
+    if (!isFinite(sin) || !isFinite(cos)) {
+      return { dist: MAX_DEPTH, type: T_WALL, side: 0, hitX: 0, hitY: 0 };
+    }
     const px = state.player.x, py = state.player.y;
     let dist = 0;
     const step = 0.02;
@@ -1281,6 +1276,9 @@ function initGame() {
   }
 
   function update(dt, now) {
+    if (!isFinite(state.player.angle)) state.player.angle = 0;
+    if (!isFinite(state.player.x)) state.player.x = 1.5;
+    if (!isFinite(state.player.y)) state.player.y = 1.5;
     state.gameTime = now - state.gameStart;
     if (state.frozen > 0) {
       state.frozen -= dt;
@@ -1798,13 +1796,22 @@ function initGame() {
   document.addEventListener('keyup', e => { state.keys[e.code] = false; });
 
   // ============================================================
-  //  МЫШЬ — с защитой от "пустых" кадров
+  //  МЫШЬ — ФИНАЛЬНАЯ ЗАЩИТА ДЛЯ GITHUB PAGES
   // ============================================================
   canvas.addEventListener('click', () => {
     if (state.phase !== 'playing') return;
     if (!state.mouseLocked) {
       if (canvas.requestPointerLock) {
-        try { canvas.requestPointerLock(); } catch (e) {}
+        try {
+          const promise = canvas.requestPointerLock({ unadjustedMovement: true });
+          if (promise && promise.catch) {
+            promise.catch(() => {
+              try { canvas.requestPointerLock(); } catch (e) {}
+            });
+          }
+        } catch (e) {
+          try { canvas.requestPointerLock(); } catch (e2) {}
+        }
       }
     } else {
       shoot();
@@ -1813,21 +1820,22 @@ function initGame() {
 
   document.addEventListener('pointerlockchange', () => {
     state.mouseLocked = document.pointerLockElement === canvas;
-    // Принудительный ре-рендер, чтобы не было "пустого" экрана
     if (state.phase === 'playing') render();
   });
 
   document.addEventListener('pointerlockerror', () => {
     state.mouseLocked = false;
-    // Игра работает и без захвата мыши — стрелками можно поворачивать
   });
 
   document.addEventListener('mousemove', e => {
-    if (state.mouseLocked && state.phase === 'playing') {
-      state.player.angle += e.movementX * MOUSE_SENS;
-      // Принудительный ре-рендер сразу после изменения угла
-      render();
-    }
+    if (!state.mouseLocked || state.phase !== 'playing') return;
+    const mx = e.movementX;
+    if (!isFinite(mx) || mx === 0) return;
+    state.player.angle += mx * MOUSE_SENS;
+    if (!isFinite(state.player.angle)) state.player.angle = 0;
+    while (state.player.angle > Math.PI) state.player.angle -= Math.PI * 2;
+    while (state.player.angle < -Math.PI) state.player.angle += Math.PI * 2;
+    render();
   });
 
   document.querySelectorAll('.mc-btn').forEach(btn => {
@@ -2015,7 +2023,7 @@ function initGame() {
   mmCanvas.height = 180;
   updateMenuStats();
   render3D();
-  console.log('Analcore 3D v8 ready. Map: 32x32, spawn at (1.5, 1.5). Pointer lock fix included.');
+  console.log('Analcore 3D v9 ready. GitHub Pages mouse fix applied.');
 }
 </script>
 </body>
