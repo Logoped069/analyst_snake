@@ -273,7 +273,7 @@
 
 <script>
 // ============================================================
-//  ИНИЦИАЛИЗАЦИЯ — только после DOMContentLoaded
+//  ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   try {
@@ -283,15 +283,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:monospace;font-size:14px;background:#0f172a;min-height:100vh">' +
       '<h1 style="color:#f87171">Ошибка инициализации</h1>' +
       '<pre style="white-space:pre-wrap;color:#e2e8f0">' + (e.stack || e.message) + '</pre>' +
-      '<p style="color:#94a3b8">Попробуй обновить страницу (Ctrl+F5) или открыть в Chrome/Edge.</p>' +
       '</div>';
   }
 });
 
 function initGame() {
-  // ============================================================
-  //  КОНСТАНТЫ
-  // ============================================================
   const MAP_W = 32, MAP_H = 32;
   const MAX_DEPTH = 22;
   const MOVE_SPEED = 0.07;
@@ -311,9 +307,6 @@ function initGame() {
     alex: ['Алексей: «Я про архитектуру...»', 'Алексей: «Есть один нюанс...»', 'Алексей: «Надо обсудить...»'],
   };
 
-  // ============================================================
-  //  КАРТА
-  // ============================================================
   const MAP = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -349,7 +342,6 @@ function initGame() {
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
   ];
 
-  // Секретная комната
   for (let y = 26; y <= 31; y++) {
     for (let x = 26; x <= 31; x++) {
       if (x === 26 || x === 31 || y === 26 || y === 31) {
@@ -361,7 +353,6 @@ function initGame() {
   }
   MAP[28][26] = T_LOCKED;
 
-  // Окна на внешних стенах
   for (let x = 2; x < MAP_W - 2; x += 5) {
     if (MAP[0][x] === T_WALL) MAP[0][x] = T_WINDOW;
   }
@@ -370,7 +361,6 @@ function initGame() {
     if (MAP[y][MAP_W - 1] === T_WALL) MAP[y][MAP_W - 1] = T_WINDOW;
   }
 
-  // Нормализация
   for (let y = 0; y < MAP.length; y++) {
     if (!MAP[y]) MAP[y] = [];
     while (MAP[y].length < MAP_W) MAP[y].push(T_WALL);
@@ -397,35 +387,14 @@ function initGame() {
   }
 
   // ============================================================
-  //  ТЕКСТУРЫ — с ГАРАНТИРОВАННЫМ getImageData (работает на GitHub Pages)
+  //  ТЕКСТУРЫ
   // ============================================================
   const TEX_SIZE = 64;
   const TEX_PIXELS = {};
 
-  function extractPixelsSafe(canvasEl) {
-    try {
-      // willReadFrequently помогает браузеру не оптимизировать canvas для GPU
-      // что критично для getImageData на https
-      const ctx2 = canvasEl.getContext('2d', { willReadFrequently: true });
-      return ctx2.getImageData(0, 0, TEX_SIZE, TEX_SIZE).data;
-    } catch (e) {
-      console.warn('getImageData failed, using fallback:', e);
-      // Fallback: генерируем пиксели вручную (просто цвета)
-      const arr = new Uint8ClampedArray(TEX_SIZE * TEX_SIZE * 4);
-      for (let i = 0; i < arr.length; i += 4) {
-        arr[i] = 100; arr[i+1] = 116; arr[i+2] = 139; arr[i+3] = 255;
-      }
-      return arr;
-    }
-  }
-
   function makeTexturePixels(type) {
-    // ВАЖНО: создаём canvas через createElement и СРАЗУ добавляем в DOM (скрыто),
-    // затем читаем, затем удаляем — это гарантирует getImageData на всех браузерах
     const c = document.createElement('canvas');
     c.width = TEX_SIZE; c.height = TEX_SIZE;
-    c.style.display = 'none';
-    document.body.appendChild(c);
     const g = c.getContext('2d', { willReadFrequently: true });
     if (type === T_WALL) {
       g.fillStyle = '#64748b'; g.fillRect(0, 0, 64, 64);
@@ -459,8 +428,6 @@ function initGame() {
       g.fillStyle = '#92400e'; g.fillRect(4, 4, 56, 56);
       g.fillStyle = '#451a03'; g.fillRect(8, 8, 48, 48);
       g.fillStyle = '#ef4444'; g.beginPath(); g.arc(32, 32, 14, 0, Math.PI*2); g.fill();
-      g.fillStyle = '#fff'; g.font = 'bold 20px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillText('🔒', 32, 34);
     } else if (type === T_WINDOW) {
       g.fillStyle = '#0c1e5e'; g.fillRect(0, 0, 64, 64);
       const grad = g.createLinearGradient(0, 0, 0, 48);
@@ -477,9 +444,16 @@ function initGame() {
     } else {
       g.fillStyle = '#64748b'; g.fillRect(0, 0, 64, 64);
     }
-    const pixels = extractPixelsSafe(c);
-    document.body.removeChild(c);
-    return pixels;
+    try {
+      return g.getImageData(0, 0, TEX_SIZE, TEX_SIZE).data;
+    } catch (e) {
+      // Fallback: генерируем простые пиксели
+      const arr = new Uint8ClampedArray(TEX_SIZE * TEX_SIZE * 4);
+      for (let i = 0; i < arr.length; i += 4) {
+        arr[i] = 100; arr[i+1] = 116; arr[i+2] = 139; arr[i+3] = 255;
+      }
+      return arr;
+    }
   }
 
   TEX_PIXELS[T_WALL] = makeTexturePixels(T_WALL);
@@ -492,16 +466,19 @@ function initGame() {
   TEX_PIXELS[T_BOARD] = makeTexturePixels(T_BOARD);
 
   // ============================================================
-  //  КАНВАС
+  //  КАНВАС — БЕЗ willReadFrequently (главный canvas только пишет!)
   // ============================================================
   const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d', { willReadFrequently: false });
+  const ctx = canvas.getContext('2d'); // дефолтные настройки — GPU-ускорение
   const mmCanvas = document.getElementById('minimap');
   const mmCtx = mmCanvas.getContext('2d');
 
   let W = window.innerWidth, H = window.innerHeight;
   canvas.width = W; canvas.height = H;
-  window.addEventListener('resize', () => { W = window.innerWidth; H = window.innerHeight; canvas.width = W; canvas.height = H; });
+  window.addEventListener('resize', () => {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W; canvas.height = H;
+  });
 
   // ============================================================
   //  СОХРАНЕНИЕ
@@ -589,9 +566,6 @@ function initGame() {
     switch: () => playTone(400, 0.08, 'square', 0.1),
   };
 
-  // ============================================================
-  //  СОСТОЯНИЕ
-  // ============================================================
   let state = {
     phase: 'menu',
     player: { x: 1.5, y: 1.5, angle: 0, vx: 0, vy: 0 },
@@ -1117,52 +1091,57 @@ function initGame() {
   }
 
   function render() {
-    ctx.save();
-    if (state.shakeTime > 0) {
-      const s = state.shakeTime / 300 * 10;
-      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-    }
+    try {
+      if (canvas.width === 0 || canvas.height === 0) return;
+      ctx.save();
+      if (state.shakeTime > 0) {
+        const s = state.shakeTime / 300 * 10;
+        ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+      }
 
-    render3D();
+      render3D();
 
-    const sprites = [];
-    state.enemies.forEach(e => sprites.push({ type: 'enemy', data: e, dist: Math.hypot(e.x - state.player.x, e.y - state.player.y) }));
-    state.items.forEach(i => sprites.push({ type: 'item', data: i, dist: Math.hypot(i.x - state.player.x, i.y - state.player.y) }));
-    state.projectiles.forEach(p => sprites.push({ type: 'proj', data: p, dist: Math.hypot(p.x - state.player.x, p.y - state.player.y) }));
-    sprites.sort((a, b) => b.dist - a.dist);
-    sprites.forEach(s => {
-      if (s.type === 'enemy') drawEnemySprite(s.data);
-      else if (s.type === 'item') drawItemSprite(s.data);
-      else drawProjectile(s.data);
-    });
+      const sprites = [];
+      state.enemies.forEach(e => sprites.push({ type: 'enemy', data: e, dist: Math.hypot(e.x - state.player.x, e.y - state.player.y) }));
+      state.items.forEach(i => sprites.push({ type: 'item', data: i, dist: Math.hypot(i.x - state.player.x, i.y - state.player.y) }));
+      state.projectiles.forEach(p => sprites.push({ type: 'proj', data: p, dist: Math.hypot(p.x - state.player.x, p.y - state.player.y) }));
+      sprites.sort((a, b) => b.dist - a.dist);
+      sprites.forEach(s => {
+        if (s.type === 'enemy') drawEnemySprite(s.data);
+        else if (s.type === 'item') drawItemSprite(s.data);
+        else drawProjectile(s.data);
+      });
 
-    drawParticles();
+      drawParticles();
 
-    const p = (state.gameTime % 120000) / 120000;
-    let tint = 0;
-    if (p < 0.4) tint = 0;
-    else if (p < 0.5) tint = (p - 0.4) / 0.1;
-    else if (p < 0.9) tint = 1;
-    else tint = 1 - (p - 0.9) / 0.1;
-    if (tint > 0) {
-      ctx.fillStyle = 'rgba(10,15,30,' + (tint * 0.5) + ')';
+      const p = (state.gameTime % 120000) / 120000;
+      let tint = 0;
+      if (p < 0.4) tint = 0;
+      else if (p < 0.5) tint = (p - 0.4) / 0.1;
+      else if (p < 0.9) tint = 1;
+      else tint = 1 - (p - 0.9) / 0.1;
+      if (tint > 0) {
+        ctx.fillStyle = 'rgba(10,15,30,' + (tint * 0.5) + ')';
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      const vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.8);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+      ctx.fillStyle = vig;
       ctx.fillRect(0, 0, W, H);
+
+      drawPlayerWeapon();
+
+      ctx.restore();
+
+      if (state.weaponAnim > 0) state.weaponAnim = Math.max(0, state.weaponAnim - 0.08);
+      if (state.shakeTime > 0) state.shakeTime -= 16;
+
+      renderMinimap();
+    } catch (e) {
+      console.error('Render error:', e);
     }
-
-    const vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H*0.8);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,0.5)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, W, H);
-
-    drawPlayerWeapon();
-
-    ctx.restore();
-
-    if (state.weaponAnim > 0) state.weaponAnim = Math.max(0, state.weaponAnim - 0.08);
-    if (state.shakeTime > 0) state.shakeTime -= 16;
-
-    renderMinimap();
   }
 
   function bfsPath(sx, sy, tx, ty) {
@@ -1818,18 +1797,36 @@ function initGame() {
   });
   document.addEventListener('keyup', e => { state.keys[e.code] = false; });
 
+  // ============================================================
+  //  МЫШЬ — с защитой от "пустых" кадров
+  // ============================================================
   canvas.addEventListener('click', () => {
-    if (state.phase === 'playing') {
-      if (!state.mouseLocked && canvas.requestPointerLock) canvas.requestPointerLock();
-      else shoot();
+    if (state.phase !== 'playing') return;
+    if (!state.mouseLocked) {
+      if (canvas.requestPointerLock) {
+        try { canvas.requestPointerLock(); } catch (e) {}
+      }
+    } else {
+      shoot();
     }
   });
+
   document.addEventListener('pointerlockchange', () => {
     state.mouseLocked = document.pointerLockElement === canvas;
+    // Принудительный ре-рендер, чтобы не было "пустого" экрана
+    if (state.phase === 'playing') render();
   });
+
+  document.addEventListener('pointerlockerror', () => {
+    state.mouseLocked = false;
+    // Игра работает и без захвата мыши — стрелками можно поворачивать
+  });
+
   document.addEventListener('mousemove', e => {
     if (state.mouseLocked && state.phase === 'playing') {
       state.player.angle += e.movementX * MOUSE_SENS;
+      // Принудительный ре-рендер сразу после изменения угла
+      render();
     }
   });
 
@@ -2018,7 +2015,7 @@ function initGame() {
   mmCanvas.height = 180;
   updateMenuStats();
   render3D();
-  console.log('Analcore 3D v7 ready. Map: 32x32, spawn at (1.5, 1.5)');
+  console.log('Analcore 3D v8 ready. Map: 32x32, spawn at (1.5, 1.5). Pointer lock fix included.');
 }
 </script>
 </body>
