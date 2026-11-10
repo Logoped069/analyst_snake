@@ -133,7 +133,7 @@
 </style>
 </head>
 <body>
-<canvas id="game" width="1920" height="1080"></canvas>
+<canvas id="game"></canvas>
 <div id="crosshair"></div>
 <canvas id="minimap" width="180" height="180"></canvas>
 <div id="hud" style="display:none;">
@@ -292,7 +292,8 @@ function initGame() {
 
   let FOV = Math.PI / 3;
   let RAYS = 240;
-  let MOUSE_SENS = 0.001;
+  // НОВАЯ БАЗОВАЯ ЧУВСТВИТЕЛЬНОСТЬ: выше, чтобы компенсировать сжатие movementX на GitHub
+  let MOUSE_SENS = 0.0008; 
 
   const T_FLOOR = 0, T_WALL = 1, T_DESK = 2, T_COOLER = 3, T_PRINTER = 4, T_DOOR = 5, T_WINDOW = 7, T_BOARD = 8, T_LOCKED = 9;
 
@@ -463,17 +464,13 @@ function initGame() {
   const mmCanvas = document.getElementById('minimap');
   const mmCtx = mmCanvas.getContext('2d');
 
-  // ВАЖНО: Внутреннее разрешение canvas фиксировано в HTML (1920x1080)
-  // CSS растягивает его на весь экран. DevTools и ресайз окна не влияют.
-  let W = canvas.width;
-  let H = canvas.height;
-  
-  function updateCanvasCSS() {
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-  }
-  updateCanvasCSS();
-  window.addEventListener('resize', updateCanvasCSS);
+  // Возвращаем адаптивный canvas как было раньше
+  let W = window.innerWidth, H = window.innerHeight;
+  canvas.width = W; canvas.height = H;
+  window.addEventListener('resize', () => {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W; canvas.height = H;
+  });
 
   function loadSave() { try { return JSON.parse(localStorage.getItem('analcore_save') || '{}'); } catch (e) { return {}; } }
   function saveSave(s) { localStorage.setItem('analcore_save', JSON.stringify(s)); }
@@ -484,7 +481,7 @@ function initGame() {
   save.achievements = save.achievements || {};
   save.skins = save.skins || { default: true };
   save.currentSkin = save.currentSkin || 'default';
-  save.settings = save.settings || { sound: true, music: true, sens: 5, fov: 90, rays: 240 };
+  save.settings = save.settings || { sound: true, music: true, sens: 12, fov: 90, rays: 240 }; // базовое sens: 12
 
   let audioCtx = null;
   let soundEnabled = save.settings.sound;
@@ -1796,7 +1793,7 @@ function initGame() {
   document.addEventListener('keyup', e => { state.keys[e.code] = false; });
 
   // ============================================================
-  //  МЫШЬ — ФИНАЛЬНАЯ ЗАЩИТА ДЛЯ GITHUB PAGES
+  //  МЫШЬ
   // ============================================================
   canvas.addEventListener('click', () => {
     if (state.phase !== 'playing') return;
@@ -1909,6 +1906,7 @@ function initGame() {
   });
   document.getElementById('set-sens').addEventListener('input', (e) => {
     save.settings.sens = +e.target.value;
+    // Базовая чувствительность умножена на 12, чтобы работать на GitHub
     MOUSE_SENS = 0.0002 * (+e.target.value);
     saveSave(save);
   });
@@ -2023,7 +2021,7 @@ function initGame() {
   mmCanvas.height = 180;
   updateMenuStats();
   render3D();
-  console.log('Analcore 3D v9 ready. GitHub Pages mouse fix applied.');
+  console.log('Analcore 3D v10 ready. GitHub Pages mouse sensitivity fixed.');
 }
 </script>
 </body>
